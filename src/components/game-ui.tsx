@@ -7,9 +7,11 @@ import { adjustDifficulty } from '@/ai/flows/adjust-difficulty';
 import { useToast } from "@/hooks/use-toast";
 import EngineRepairMinigame from './engine-repair-minigame';
 import NavigationMinigame from './navigation-minigame';
+import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
+import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Zap, Map, Wrench, ChevronUp, ChevronLeft, ChevronDown, ChevronRight, Gamepad2 } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 500;
@@ -19,13 +21,14 @@ const INTERACTION_DISTANCE = 50;
 const ZONES = {
   NAV_CONSOLE: { x: 50, y: 50, name: "Navigation Console" },
   ENGINE_ROOM: { x: 700, y: 400, name: "Engine" },
+  DEFENSE_CONSOLE: { x: 400, y: 50, name: "Defense Console" },
 };
 
 export default function GameUI() {
-  const { gameState, setGameState, score, setScore, engineStatus, setEngineStatus, eventIntensity, setEventIntensity } = useGame();
+  const { gameState, setGameState, score, setScore, engineStatus, setEngineStatus, eventIntensity, setEventIntensity, resetGame } = useGame();
   const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: SHIP_HEIGHT / 2 });
   const [interactionPrompt, setInteractionPrompt] = useState<string | null>(null);
-  const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | null>(null);
+  const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | 'defense' | null>(null);
   const { toast } = useToast();
   const gameLoopRef = useRef<NodeJS.Timeout>();
   const lastEventTimeRef = useRef<number>(Date.now());
@@ -53,6 +56,8 @@ export default function GameUI() {
         setActiveMinigame('navigation');
       } else if (interactionPrompt?.includes(ZONES.ENGINE_ROOM.name) && engineStatus === 'broken') {
         setActiveMinigame('engine');
+      } else if (interactionPrompt?.includes(ZONES.DEFENSE_CONSOLE.name)) {
+        setActiveMinigame('defense');
       }
     }
   }, [gameState, activeMinigame, interactionPrompt, engineStatus]);
@@ -63,6 +68,7 @@ export default function GameUI() {
   }, [handleKeyDown]);
   
   const runGameLoop = useCallback(async () => {
+    if (gameState !== 'playing') return;
     try {
       const difficulty = await adjustDifficulty({
         playerSkillLevel: playerSkillRef.current,
@@ -74,13 +80,17 @@ export default function GameUI() {
       
       const nextEventDelay = difficulty.suggestedDelay * 1000;
       gameLoopRef.current = setTimeout(() => {
-        const isMalfunction = Math.random() < 0.5; // 50/50 chance for now
-        if (isMalfunction) {
+        if (gameState !== 'playing') return;
+        const eventType = Math.random();
+        if (eventType < 0.4) {
           setEngineStatus('broken');
           toast({ title: "Warning!", description: "Engine malfunction detected!", variant: "destructive" });
-        } else {
+        } else if (eventType < 0.8) {
           setActiveMinigame('navigation');
           toast({ title: "Alert!", description: "Navigation challenge incoming!" });
+        } else {
+            setActiveMinigame('defense');
+            toast({ title: "INCOMING!", description: "Asteroid field detected!" });
         }
         lastEventTimeRef.current = Date.now();
         runGameLoop();
@@ -88,10 +98,9 @@ export default function GameUI() {
 
     } catch (error) {
       console.error("AI Difficulty Adjustment Failed:", error);
-      // Fallback to a simple timer
-      gameLoopRef.current = setTimeout(runGameLoop, 20000);
+      gameLoopRef.current = setTimeout(runGameLoop, 20000); // Fallback timer
     }
-  }, [score, setEngineStatus, setEventIntensity, toast]);
+  }, [score, setEngineStatus, setEventIntensity, toast, gameState]);
 
   useEffect(() => {
     if (gameState === 'playing') {
@@ -108,6 +117,7 @@ export default function GameUI() {
     
     const navDist = Math.hypot(playerPosition.x - ZONES.NAV_CONSOLE.x, playerPosition.y - ZONES.NAV_CONSOLE.y);
     const engineDist = Math.hypot(playerPosition.x - ZONES.ENGINE_ROOM.x, playerPosition.y - ZONES.ENGINE_ROOM.y);
+    const defenseDist = Math.hypot(playerPosition.x - ZONES.DEFENSE_CONSOLE.x, playerPosition.y - ZONES.DEFENSE_CONSOLE.y);
 
     if (navDist < INTERACTION_DISTANCE) {
       setInteractionPrompt(`Press [E] to use ${ZONES.NAV_CONSOLE.name}`);
@@ -117,30 +127,44 @@ export default function GameUI() {
       } else {
         setInteractionPrompt(`${ZONES.ENGINE_ROOM.name}: All systems nominal.`);
       }
-    } else {
+    } else if (defenseDist < INTERACTION_DISTANCE) {
+      setInteractionPrompt(`Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`);
+    }
+    else {
       setInteractionPrompt(null);
     }
   }, [playerPosition, engineStatus, gameState]);
 
-  const handleStartGame = () => setGameState('playing');
+  const handleStartGame = () => {
+    resetGame();
+    setPlayerPosition({ x: SHIP_WIDTH / 2, y: SHIP_HEIGHT / 2 });
+    setGameState('playing');
+  };
   
   if (gameState === 'start') {
     return <StartScreen onStart={handleStartGame} />;
   }
+  
+  if (gameState === 'game-over') {
+    return <GameOverScreen score={score} onRestart={handleStartGame} />;
+  }
 
-  const onMinigameClose = (type: 'engine' | 'navigation', success: boolean) => {
+  const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
+    setActiveMinigame(null);
     if (success) {
-      const points = type === 'engine' ? 150 : 100;
+      const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
       setScore(s => s + points * Math.floor(eventIntensity / 2));
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
-      // Increase skill on success
       playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
     } else {
-      // Decrease skill on failure
-      playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
+      if(type === 'defense') {
+        setGameState('game-over');
+      } else {
+        playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
+        toast({ title: "Failed!", description: "System integrity reduced.", variant: 'destructive'});
+      }
     }
-    setActiveMinigame(null);
   };
   
   return (
@@ -159,7 +183,7 @@ export default function GameUI() {
       </div>
 
       <div
-        className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20"
+        className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden"
         style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
       >
         <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
@@ -169,15 +193,34 @@ export default function GameUI() {
           </div>
         )}
         
-        <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground">Cockpit</div>
-        <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground">Engine Room</div>
+        <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm">Cockpit</div>
+        <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm">Engine Room</div>
 
-        <div className="absolute" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y }}>
-          <Map className="w-12 h-12 text-accent" />
+        <div className="absolute flex flex-col items-center" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y }}>
+          <div className="w-20 h-16 bg-slate-700 border-2 border-slate-500 rounded-md p-1">
+             <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
+                <div className="w-10 h-6 bg-cyan-400/20 rounded-sm border border-cyan-400 animate-pulse"></div>
+             </div>
+          </div>
+          <span className="text-xs mt-1 text-muted-foreground">{ZONES.NAV_CONSOLE.name}</span>
+        </div>
+        
+        <div className="absolute flex flex-col items-center" style={{ left: ZONES.DEFENSE_CONSOLE.x, top: ZONES.DEFENSE_CONSOLE.y, transform: 'translateX(-50%)'}}>
+          <div className="w-24 h-16 bg-slate-700 border-2 border-slate-500 rounded-md p-1">
+             <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
+                <div className="w-16 h-8 bg-red-500/20 rounded-sm border border-red-500 animate-pulse"></div>
+             </div>
+          </div>
+          <span className="text-xs mt-1 text-muted-foreground">{ZONES.DEFENSE_CONSOLE.name}</span>
         </div>
 
-        <div className="absolute" style={{ left: ZONES.ENGINE_ROOM.x, top: ZONES.ENGINE_ROOM.y }}>
-          <Wrench className={`w-12 h-12 transition-all duration-500 ${engineStatus === 'ok' ? 'text-green-400' : 'text-red-500 animate-engine-glow'}`} />
+        <div className="absolute flex flex-col items-center" style={{ left: ZONES.ENGINE_ROOM.x, top: ZONES.ENGINE_ROOM.y }}>
+           <div className={`w-20 h-24 bg-slate-800 border-2 rounded-lg p-2 flex flex-col justify-between ${engineStatus === 'ok' ? 'border-green-500' : 'border-red-500 animate-engine-glow'}`}>
+              <div className="h-4 bg-slate-600 rounded-sm"></div>
+              <div className="h-8 bg-slate-700 rounded-md"></div>
+              <div className="h-4 bg-slate-600 rounded-sm"></div>
+           </div>
+          <span className="text-xs mt-1 text-muted-foreground">{ZONES.ENGINE_ROOM.name}</span>
         </div>
 
         <Player position={playerPosition} size={PLAYER_SIZE} />
@@ -193,6 +236,11 @@ export default function GameUI() {
         onClose={(success) => onMinigameClose('navigation', success)}
         difficulty={eventIntensity}
       />
+      <AsteroidDefenseMinigame
+        open={activeMinigame === 'defense'}
+        onClose={(success) => onMinigameClose('defense', success)}
+        difficulty={eventIntensity}
+       />
     </div>
   );
 }
