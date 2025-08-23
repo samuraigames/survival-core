@@ -28,10 +28,12 @@ const ZONES = {
   DEFENSE_CONSOLE: { x: SHIP_WIDTH / 2 + 150, y: 100, name: "Defense" },
 };
 
+type ZoneName = keyof typeof ZONES | null;
+
 export default function GameUI() {
   const { gameState, setGameState, score, setScore, engineStatus, setEngineStatus, eventIntensity, setEventIntensity, resetGame } = useGame();
   const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
-  const [interactionPrompt, setInteractionPrompt] = useState<string | null>(null);
+  const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | 'defense' | null>(null);
   const [shipHits, setShipHits] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
@@ -47,15 +49,15 @@ export default function GameUI() {
   const handleInteraction = useCallback((e: KeyboardEvent) => {
     if (gameState !== 'playing' || activeMinigame) return;
     if (e.key === 'e' || e.key === 'E') {
-      if (interactionPrompt?.includes(ZONES.NAV_CONSOLE.name)) {
+      if (interaction?.zone === 'NAV_CONSOLE') {
         setActiveMinigame('navigation');
-      } else if (interactionPrompt?.includes(ZONES.ENGINE_ROOM.name) && engineStatus === 'broken') {
+      } else if (interaction?.zone === 'ENGINE_ROOM' && engineStatus === 'broken') {
         setActiveMinigame('engine');
-      } else if (interactionPrompt?.includes(ZONES.DEFENSE_CONSOLE.name)) {
+      } else if (interaction?.zone === 'DEFENSE_CONSOLE') {
         setActiveMinigame('defense');
       }
     }
-  }, [gameState, activeMinigame, interactionPrompt, engineStatus]);
+  }, [gameState, activeMinigame, interaction, engineStatus]);
   
   useEffect(() => {
     window.addEventListener('keydown', handleInteraction);
@@ -140,20 +142,20 @@ export default function GameUI() {
     const engineDist = Math.hypot(playerPosition.x - ZONES.ENGINE_ROOM.x, playerPosition.y - ZONES.ENGINE_ROOM.y);
     const defenseDist = Math.hypot(playerPosition.x - ZONES.DEFENSE_CONSOLE.x, playerPosition.y - ZONES.DEFENSE_CONSOLE.y);
 
-    let promptToShow = null;
+    let newInteraction: {prompt: string, zone: ZoneName} | null = null;
 
     if (defenseDist < INTERACTION_DISTANCE) {
-      promptToShow = `Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`;
+        newInteraction = { prompt: `Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`, zone: 'DEFENSE_CONSOLE' };
     } else if (navDist < INTERACTION_DISTANCE) {
-      promptToShow = `Press [E] to use ${ZONES.NAV_CONSOLE.name}`;
+        newInteraction = { prompt: `Press [E] to use ${ZONES.NAV_CONSOLE.name}`, zone: 'NAV_CONSOLE' };
     } else if (engineDist < INTERACTION_DISTANCE) {
       if (engineStatus === 'broken') {
-        promptToShow = `Press [E] to repair ${ZONES.ENGINE_ROOM.name}`;
+        newInteraction = { prompt: `Press [E] to repair ${ZONES.ENGINE_ROOM.name}`, zone: 'ENGINE_ROOM' };
       } else {
-        promptToShow = `${ZONES.ENGINE_ROOM.name}: All systems nominal.`;
+        newInteraction = { prompt: `${ZONES.ENGINE_ROOM.name}: All systems nominal.`, zone: 'ENGINE_ROOM' };
       }
     }
-    setInteractionPrompt(promptToShow);
+    setInteraction(newInteraction);
 
   }, [playerPosition, engineStatus, gameState]);
 
@@ -199,6 +201,16 @@ export default function GameUI() {
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   
+  const getPromptPosition = () => {
+    if (!interaction?.zone) return { display: 'none' };
+    const zone = ZONES[interaction.zone];
+    return {
+        left: zone.x,
+        top: zone.y + 50, // Position it below the station
+        transform: 'translateX(-50%)',
+    };
+  };
+
   return (
     <motion.div 
       className="w-full h-full flex items-center justify-center font-body text-foreground bg-black"
@@ -242,14 +254,15 @@ export default function GameUI() {
         {/* Game Area */}
         <div className="relative w-full bg-grid-pattern bg-repeat" style={{ height: GAME_AREA_HEIGHT }}>
           <AnimatePresence>
-          {interactionPrompt && !activeMinigame && (
-            <motion.div 
+          {interaction && !activeMinigame && (
+            <motion.div
+              style={getPromptPosition()}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 p-3 rounded-lg border text-accent font-headline z-20"
+              className="absolute bg-background/80 p-2 px-3 rounded-lg border text-accent font-headline z-20 text-sm whitespace-nowrap"
             >
-              {interactionPrompt}
+              {interaction.prompt}
             </motion.div>
           )}
           </AnimatePresence>
