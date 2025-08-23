@@ -99,8 +99,8 @@ export default {
         'engine-glow': 'engine-glow 2s ease-in-out infinite',
       },
       backgroundImage: {
-        'grid-pattern': `linear-gradient(to right, hsl(var(--primary) / 0.1) 1px, transparent 1px),
-                         linear-gradient(to bottom, hsl(var(--primary) / 0.1) 1px, transparent 1px)`,
+        'grid-pattern': `linear-gradient(to right, hsl(var(--primary) / 0.05) 1px, transparent 1px),
+                         linear-gradient(to bottom, hsl(var(--primary) / 0.05) 1px, transparent 1px)`,
       },
       backgroundSize: {
         'grid-pattern': '2rem 2rem',
