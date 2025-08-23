@@ -11,14 +11,16 @@ import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Gamepad2, Wrench } from 'lucide-react';
+import { Gamepad2, Wrench, Shield, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 80;
 const GAME_AREA_HEIGHT = SHIP_HEIGHT - HUD_HEIGHT;
 const PLAYER_SIZE = 40;
-const INTERACTION_DISTANCE = 50;
+const INTERACTION_DISTANCE = 70; // Increased hitbox size
+const WIN_TIME_SECONDS = 20 * 60; // 20 minutes to win
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 2 - 150, y: 100, name: "Navigation" },
@@ -31,10 +33,16 @@ export default function GameUI() {
   const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
   const [interactionPrompt, setInteractionPrompt] = useState<string | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | 'defense' | null>(null);
+  const [shipHits, setShipHits] = useState(0);
+  const [isShaking, setIsShaking] = useState(false);
+  const [gameTime, setGameTime] = useState(0);
+  const [gameWon, setGameWon] = useState(false);
   const { toast } = useToast();
   const gameLoopRef = useRef<NodeJS.Timeout>();
   const lastEventTimeRef = useRef<number>(Date.now());
   const playerSkillRef = useRef(1);
+  const gameTimerRef = useRef<NodeJS.Timeout>();
+
 
   const handleInteraction = useCallback((e: KeyboardEvent) => {
     if (gameState !== 'playing' || activeMinigame) return;
@@ -53,6 +61,12 @@ export default function GameUI() {
     window.addEventListener('keydown', handleInteraction);
     return () => window.removeEventListener('keydown', handleInteraction);
   }, [handleInteraction]);
+
+  const takeHit = useCallback(() => {
+    setIsShaking(true);
+    setShipHits(h => h + 1);
+    setTimeout(() => setIsShaking(false), 3000);
+  }, []);
 
   const runGameLoop = useCallback(async () => {
     if (gameState !== 'playing') return;
@@ -93,9 +107,23 @@ export default function GameUI() {
     if (gameState === 'playing') {
       lastEventTimeRef.current = Date.now();
       runGameLoop();
+
+      gameTimerRef.current = setInterval(() => {
+        setGameTime(t => {
+            const newTime = t + 1;
+            if (newTime >= WIN_TIME_SECONDS) {
+                setGameState('game-over');
+                setGameWon(true);
+                if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+                if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
+            }
+            return newTime;
+        });
+      }, 1000);
     }
     return () => {
       if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
+      if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     };
   }, [gameState, runGameLoop]);
 
@@ -127,6 +155,9 @@ export default function GameUI() {
     resetGame();
     setPlayerPosition({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
     setGameState('playing');
+    setShipHits(0);
+    setGameTime(0);
+    setGameWon(false);
   };
   
   if (gameState === 'start') {
@@ -134,7 +165,7 @@ export default function GameUI() {
   }
   
   if (gameState === 'game-over') {
-    return <GameOverScreen score={score} onRestart={handleStartGame} />;
+    return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
 
   const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
@@ -146,17 +177,29 @@ export default function GameUI() {
       if (type === 'engine') setEngineStatus('ok');
       playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
     } else {
-      if(type === 'defense') {
+      if (type === 'engine') {
         setGameState('game-over');
+      } else if(type === 'defense') {
+        takeHit();
       } else {
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "System integrity reduced.", variant: 'destructive'});
       }
     }
   };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
   
   return (
-    <div className="w-full h-full flex items-center justify-center font-body text-foreground bg-black">
+    <motion.div 
+      className="w-full h-full flex items-center justify-center font-body text-foreground bg-black"
+      animate={{ x: isShaking ? [-10, 10, -10, 10, -5, 5, 0] : 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <div
         className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden flex flex-col"
         style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
@@ -168,9 +211,17 @@ export default function GameUI() {
               <Badge variant="outline" className="text-lg py-2 px-4 border-accent">Score: {score}</Badge>
             </div>
             <div className="flex items-center gap-4">
+               <Badge variant="secondary" className="text-md py-2 px-4">
+                <Shield className="mr-2 h-4 w-4 text-cyan-400"/>
+                Ship Integrity: <span className="font-bold ml-1">{100 - shipHits * 10}%</span>
+              </Badge>
               <Badge variant={engineStatus === 'ok' ? 'secondary' : 'destructive'} className="text-md py-2 px-4 transition-colors duration-500">
                 <Wrench className="mr-2 h-4 w-4"/>
                 Engine: <span className="font-bold ml-1">{engineStatus.toUpperCase()}</span>
+              </Badge>
+               <Badge variant="secondary" className="text-md py-2 px-4">
+                <Clock className="mr-2 h-4 w-4"/>
+                Time: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
               </Badge>
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
@@ -185,11 +236,18 @@ export default function GameUI() {
 
         {/* Game Area */}
         <div className="relative w-full bg-grid-pattern bg-repeat" style={{ height: GAME_AREA_HEIGHT }}>
+          <AnimatePresence>
           {interactionPrompt && !activeMinigame && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 p-3 rounded-lg border text-accent font-headline animate-pulse z-20">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 p-3 rounded-lg border text-accent font-headline z-20"
+            >
               {interactionPrompt}
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
           
           <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm z-0">Cockpit</div>
           <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">Engine Room</div>
@@ -249,6 +307,6 @@ export default function GameUI() {
         onClose={(success) => onMinigameClose('defense', success)}
         difficulty={eventIntensity}
        />
-    </div>
+    </motion.div>
   );
 }

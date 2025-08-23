@@ -13,7 +13,7 @@ interface NavigationMinigameProps {
 const GAME_WIDTH = 500;
 const GAME_HEIGHT = 300;
 const SHIP_SIZE = 15;
-const PATH_WIDTH = 40;
+const PATH_WIDTH = 30; // Narrower path
 
 const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, difficulty }) => {
   const [shipY, setShipY] = useState(GAME_HEIGHT / 2);
@@ -62,8 +62,8 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     setShipY(prevY => {
         const speed = 4;
         let newY = prevY;
-        if(keysPressed.current['ArrowUp']) newY -= speed;
-        if(keysPressed.current['ArrowDown']) newY += speed;
+        if(keysPressed.current['ArrowUp'] || keysPressed.current['w']) newY -= speed;
+        if(keysPressed.current['ArrowDown'] || keysPressed.current['s']) newY += speed;
         return Math.max(0, Math.min(GAME_HEIGHT - SHIP_SIZE, newY));
     });
 
@@ -72,7 +72,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
         const newProgress = p + 0.2;
         if (newProgress >= 100) {
             setGameOver(true);
-            onClose(true);
+            setTimeout(() => onClose(true), 1000);
         }
         return newProgress;
     });
@@ -86,7 +86,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
         if (shipY < lowerBound || shipY > upperBound) {
             setIsOffPath(true);
             setGameOver(false);
-            onClose(false);
+            setTimeout(() => onClose(false), 1000);
         }
     }
 
@@ -104,11 +104,11 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    keysPressed.current[e.key] = true;
+    keysPressed.current[e.key.toLowerCase()] = true;
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    keysPressed.current[e.key] = false;
+    keysPressed.current[e.key.toLowerCase()] = false;
   }, []);
 
   useEffect(() => {
@@ -130,7 +130,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
       <DialogContent className="max-w-xl bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Navigation Control</DialogTitle>
-          <DialogDescription>Use UP and DOWN arrow keys to stay on the designated course.</DialogDescription>
+          <DialogDescription>Use UP/DOWN or W/S keys to stay on the designated course.</DialogDescription>
         </DialogHeader>
         <div className="relative overflow-hidden rounded-md border" style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}>
             <div className="absolute inset-0 bg-black" />
