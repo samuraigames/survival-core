@@ -64,9 +64,15 @@ export default function GameUI() {
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
-    setShipHits(h => h + 1);
-    setTimeout(() => setIsShaking(false), 3000);
-  }, []);
+    setShipHits(h => {
+        const newHits = h + 1;
+        if (newHits >= 10) {
+            setGameState('game-over');
+        }
+        return newHits;
+    });
+    setTimeout(() => setIsShaking(false), 500);
+  }, [setGameState]);
 
   const runGameLoop = useCallback(async () => {
     if (gameState !== 'playing') return;
@@ -179,9 +185,8 @@ export default function GameUI() {
     } else {
       if (type === 'engine') {
         setGameState('game-over');
-      } else if(type === 'defense') {
+      } else if(type === 'defense' || type === 'navigation') {
         takeHit();
-      } else {
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "System integrity reduced.", variant: 'destructive'});
       }
@@ -197,7 +202,7 @@ export default function GameUI() {
   return (
     <motion.div 
       className="w-full h-full flex items-center justify-center font-body text-foreground bg-black"
-      animate={{ x: isShaking ? [-10, 10, -10, 10, -5, 5, 0] : 0 }}
+      animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
       transition={{ duration: 0.5 }}
     >
       <div
