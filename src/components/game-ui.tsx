@@ -11,7 +11,7 @@ import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Zap, Wrench } from 'lucide-react';
+import { Gamepad2, Wrench } from 'lucide-react';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
@@ -36,23 +36,8 @@ export default function GameUI() {
   const lastEventTimeRef = useRef<number>(Date.now());
   const playerSkillRef = useRef(1);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  const handleInteraction = useCallback((e: KeyboardEvent) => {
     if (gameState !== 'playing' || activeMinigame) return;
-
-    setPlayerPosition(prev => {
-      let { x, y } = prev;
-      const speed = 10;
-      if (e.key === 'w' || e.key === 'W') y -= speed;
-      if (e.key === 's' || e.key === 'S') y += speed;
-      if (e.key === 'a' || e.key === 'A') x -= speed;
-      if (e.key === 'd' || e.key === 'D') x += speed;
-
-      return {
-        x: Math.max(PLAYER_SIZE/2, Math.min(x, SHIP_WIDTH - PLAYER_SIZE/2)),
-        y: Math.max(PLAYER_SIZE/2, Math.min(y, GAME_AREA_HEIGHT - PLAYER_SIZE/2)),
-      };
-    });
-
     if (e.key === 'e' || e.key === 'E') {
       if (interactionPrompt?.includes(ZONES.NAV_CONSOLE.name)) {
         setActiveMinigame('navigation');
@@ -63,12 +48,12 @@ export default function GameUI() {
       }
     }
   }, [gameState, activeMinigame, interactionPrompt, engineStatus]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
   
+  useEffect(() => {
+    window.addEventListener('keydown', handleInteraction);
+    return () => window.removeEventListener('keydown', handleInteraction);
+  }, [handleInteraction]);
+
   const runGameLoop = useCallback(async () => {
     if (gameState !== 'playing') return;
     try {
@@ -177,7 +162,7 @@ export default function GameUI() {
         style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
       >
         {/* HUD */}
-        <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-10" style={{ height: HUD_HEIGHT}}>
+        <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT}}>
           <div className="p-4 flex justify-between items-center h-full">
             <div>
               <Badge variant="outline" className="text-lg py-2 px-4 border-accent">Score: {score}</Badge>
@@ -239,7 +224,13 @@ export default function GameUI() {
             <span className="text-xs mt-1 text-muted-foreground">{ZONES.ENGINE_ROOM.name}</span>
           </div>
 
-          <Player position={playerPosition} size={PLAYER_SIZE} />
+          <Player
+            position={playerPosition}
+            onPositionChange={setPlayerPosition}
+            size={PLAYER_SIZE}
+            bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
+            isMovementPaused={!!activeMinigame}
+          />
         </div>
       </div>
       
