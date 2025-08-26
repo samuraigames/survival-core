@@ -125,24 +125,27 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     
     // Move Bullets & Check Collisions
     setBullets(prevBullets => {
-        const newAsteroids = [...asteroids];
-        const remainingBullets = prevBullets.map(b => ({ ...b, y: b.y - 8 })).filter(b => b.y > -10);
-        
+        let currentAsteroids = [...asteroids];
+        const remainingBullets: typeof bullets = [];
         let newScore = score;
         const destroyedAsteroidIds = new Set();
 
-        for (const bullet of remainingBullets) {
-            for (const asteroid of newAsteroids) {
-                if(destroyedAsteroidIds.has(asteroid.id)) continue;
-
-                const distance = Math.hypot(bullet.x - asteroid.x, bullet.y - asteroid.y);
-                if (distance < 15) { // Collision radius
+        for (const bullet of prevBullets) {
+            let bulletDestroyed = false;
+            for (const asteroid of currentAsteroids) {
+                if (destroyedAsteroidIds.has(asteroid.id)) continue;
+                
+                const distance = Math.hypot(bullet.x - asteroid.x - 10, bullet.y - asteroid.y - 10);
+                if (distance < 15) { // Collision radius (bullet vs asteroid center)
                     destroyedAsteroidIds.add(asteroid.id);
-                    // Remove bullet by not including it in the next state
-                    bullet.y = -100;
+                    bulletDestroyed = true;
                     newScore += 10;
-                    break;
+                    break; 
                 }
+            }
+
+            if (!bulletDestroyed && bullet.y > -20) {
+                remainingBullets.push({ ...bullet, y: bullet.y - 8 });
             }
         }
         
