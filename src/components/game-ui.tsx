@@ -136,28 +136,41 @@ export default function GameUI() {
   }, [gameState, runGameLoop]);
 
   useEffect(() => {
-    if (gameState !== 'playing') return;
-    
-    const navDist = Math.hypot(playerPosition.x - ZONES.NAV_CONSOLE.x, playerPosition.y - ZONES.NAV_CONSOLE.y);
-    const engineDist = Math.hypot(playerPosition.x - ZONES.ENGINE_ROOM.x, playerPosition.y - ZONES.ENGINE_ROOM.y);
-    const defenseDist = Math.hypot(playerPosition.x - ZONES.DEFENSE_CONSOLE.x, playerPosition.y - ZONES.DEFENSE_CONSOLE.y);
-
-    let newInteraction: {prompt: string, zone: ZoneName} | null = null;
-
-    if (defenseDist < INTERACTION_DISTANCE) {
-        newInteraction = { prompt: `Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`, zone: 'DEFENSE_CONSOLE' };
-    } else if (navDist < INTERACTION_DISTANCE) {
-        newInteraction = { prompt: `Press [E] to use ${ZONES.NAV_CONSOLE.name}`, zone: 'NAV_CONSOLE' };
-    } else if (engineDist < INTERACTION_DISTANCE) {
-      if (engineStatus === 'broken') {
-        newInteraction = { prompt: `Press [E] to repair ${ZONES.ENGINE_ROOM.name}`, zone: 'ENGINE_ROOM' };
-      } else {
-        newInteraction = { prompt: `${ZONES.ENGINE_ROOM.name}: All systems nominal.`, zone: 'ENGINE_ROOM' };
+    const checkInteractions = () => {
+      if (gameState !== 'playing') {
+        if (interaction) setInteraction(null);
+        return;
       }
-    }
-    setInteraction(newInteraction);
+      
+      const navDist = Math.hypot(playerPosition.x - ZONES.NAV_CONSOLE.x, playerPosition.y - ZONES.NAV_CONSOLE.y);
+      const engineDist = Math.hypot(playerPosition.x - ZONES.ENGINE_ROOM.x, playerPosition.y - ZONES.ENGINE_ROOM.y);
+      const defenseDist = Math.hypot(playerPosition.x - ZONES.DEFENSE_CONSOLE.x, playerPosition.y - ZONES.DEFENSE_CONSOLE.y);
+  
+      let newInteraction: {prompt: string, zone: ZoneName} | null = null;
+  
+      if (defenseDist < INTERACTION_DISTANCE) {
+          newInteraction = { prompt: `Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`, zone: 'DEFENSE_CONSOLE' };
+      } else if (navDist < INTERACTION_DISTANCE) {
+          newInteraction = { prompt: `Press [E] to use ${ZONES.NAV_CONSOLE.name}`, zone: 'NAV_CONSOLE' };
+      } else if (engineDist < INTERACTION_DISTANCE) {
+        if (engineStatus === 'broken') {
+          newInteraction = { prompt: `Press [E] to repair ${ZONES.ENGINE_ROOM.name}`, zone: 'ENGINE_ROOM' };
+        } else {
+          newInteraction = { prompt: `${ZONES.ENGINE_ROOM.name}: All systems nominal.`, zone: 'ENGINE_ROOM' };
+        }
+      }
+      
+      if (newInteraction?.zone !== interaction?.zone) {
+        setInteraction(newInteraction);
+      }
+    };
 
-  }, [playerPosition, engineStatus, gameState]);
+    // Run on an interval to avoid running on every frame
+    const intervalId = setInterval(checkInteractions, 100);
+
+    return () => clearInterval(intervalId);
+
+  }, [playerPosition, engineStatus, gameState, interaction]);
 
   const handleStartGame = () => {
     resetGame();
