@@ -13,7 +13,7 @@ interface NavigationMinigameProps {
 const GAME_WIDTH = 500;
 const GAME_HEIGHT = 300;
 const SHIP_SIZE = 15;
-const PATH_WIDTH = 30; // Narrower path
+const PATH_WIDTH = 40; // Wider path for easier gameplay
 
 const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, difficulty }) => {
   const [shipY, setShipY] = useState(GAME_HEIGHT / 2);
@@ -29,7 +29,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     const newPath = [];
     let y = GAME_HEIGHT / 2;
     const segments = 50;
-    const pathVolatility = difficulty * 2;
+    const pathVolatility = difficulty * 1.5; // Slightly less volatile
 
     for (let i = 0; i < segments; i++) {
       const change = (Math.random() - 0.5) * pathVolatility;
@@ -177,3 +177,5 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 };
 
 export default NavigationMinigame;
+
+    

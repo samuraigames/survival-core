@@ -49,8 +49,8 @@ export default function GameUI() {
 
   const isGameActive = gameState === 'playing' && !isPaused && !activeMinigame;
 
-  const handleInteraction = useCallback((e: KeyboardEvent) => {
-    if (gameState !== 'playing' || isPaused || activeMinigame) return;
+  const handleInteractionKey = useCallback((e: KeyboardEvent) => {
+    if (!isGameActive || !interaction) return;
     if (e.key === 'e' || e.key === 'E') {
       if (interaction?.zone === 'NAV_CONSOLE') {
         setActiveMinigame('navigation');
@@ -60,12 +60,48 @@ export default function GameUI() {
         setActiveMinigame('defense');
       }
     }
-  }, [gameState, activeMinigame, interaction, engineStatus, isPaused]);
+  }, [isGameActive, interaction, engineStatus]);
   
   useEffect(() => {
-    window.addEventListener('keydown', handleInteraction);
-    return () => window.removeEventListener('keydown', handleInteraction);
-  }, [handleInteraction]);
+    window.addEventListener('keydown', handleInteractionKey);
+    return () => window.removeEventListener('keydown', handleInteractionKey);
+  }, [handleInteractionKey]);
+  
+  useEffect(() => {
+    const checkInteractions = () => {
+      if (!isGameActive) {
+        if (interaction) setInteraction(null);
+        return;
+      }
+      
+      let closestZone: {prompt: string, zone: ZoneName} | null = null;
+      
+      for (const zoneKey in ZONES) {
+        const zone = ZONES[zoneKey as keyof typeof ZONES];
+        const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
+
+        if (distance < INTERACTION_DISTANCE) {
+            if (zoneKey === 'ELECTRICAL_PANEL') {
+                closestZone = {
+                    prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
+                    zone: 'ELECTRICAL_PANEL'
+                };
+            } else {
+                 closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
+            }
+            break; 
+        }
+      }
+      
+      if (closestZone?.prompt !== interaction?.prompt) {
+          setInteraction(closestZone);
+      }
+    };
+
+    const intervalId = setInterval(checkInteractions, 100);
+    return () => clearInterval(intervalId);
+  }, [playerPosition, isGameActive, interaction, engineStatus]);
+
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -110,7 +146,6 @@ export default function GameUI() {
 
     } catch (error) {
       console.error("AI Difficulty Adjustment Failed:", error);
-      // Fallback timer if AI fails, to prevent the game from stopping.
       gameLoopRef.current = setTimeout(runGameLoop, 20000); 
     }
   }, [isGameActive, engineStatus, setEngineStatus, setEventIntensity, toast, score]);
@@ -139,42 +174,6 @@ export default function GameUI() {
     };
   }, [isGameActive, runGameLoop]);
 
-  useEffect(() => {
-    const checkInteractions = () => {
-      if (!isGameActive) {
-        if (interaction) setInteraction(null);
-        return;
-      }
-      
-      const navDist = Math.hypot(playerPosition.x - ZONES.NAV_CONSOLE.x, playerPosition.y - ZONES.NAV_CONSOLE.y);
-      const electricalDist = Math.hypot(playerPosition.x - ZONES.ELECTRICAL_PANEL.x, playerPosition.y - ZONES.ELECTRICAL_PANEL.y);
-      const defenseDist = Math.hypot(playerPosition.x - ZONES.DEFENSE_CONSOLE.x, playerPosition.y - ZONES.DEFENSE_CONSOLE.y);
-  
-      let newInteraction: {prompt: string, zone: ZoneName} | null = null;
-  
-      if (defenseDist < INTERACTION_DISTANCE) {
-          newInteraction = { prompt: `Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`, zone: 'DEFENSE_CONSOLE' };
-      } else if (navDist < INTERACTION_DISTANCE) {
-          newInteraction = { prompt: `Press [E] to use ${ZONES.NAV_CONSOLE.name}`, zone: 'NAV_CONSOLE' };
-      } else if (electricalDist < INTERACTION_DISTANCE) {
-        if (engineStatus === 'broken') {
-          newInteraction = { prompt: `Press [E] to repair ${ZONES.ELECTRICAL_PANEL.name}`, zone: 'ELECTRICAL_PANEL' };
-        } else {
-          newInteraction = { prompt: `${ZONES.ELECTRICAL_PANEL.name}: All systems nominal.`, zone: 'ELECTRICAL_PANEL' };
-        }
-      }
-      
-      if (newInteraction?.prompt !== interaction?.prompt) {
-        setInteraction(newInteraction);
-      }
-    };
-
-    const intervalId = setInterval(checkInteractions, 100);
-
-    return () => clearInterval(intervalId);
-
-  }, [playerPosition, engineStatus, isGameActive, interaction]);
-
   const handleStartGame = () => {
     resetGame();
     setPlayerPosition({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
@@ -196,7 +195,7 @@ export default function GameUI() {
   const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (success) {
-      const points = type === 'engine' ? 15 : (type === 'navigation' ? 10 : 20);
+      const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
       setScore(s => s + points * Math.floor(eventIntensity / 2));
       toast({ title: "Success!", description: `+${points * Math.floor(eventIntensity / 2)} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
@@ -364,3 +363,5 @@ export default function GameUI() {
     </motion.div>
   );
 }
+
+    
