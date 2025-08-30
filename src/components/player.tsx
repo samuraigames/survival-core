@@ -52,7 +52,6 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         
         const newPos = { x: clampedX, y: clampedY };
         
-        // Only update if position has changed to avoid unnecessary re-renders
         if (newPos.x !== positionRef.current.x || newPos.y !== positionRef.current.y) {
             positionRef.current = newPos;
             onPositionChange(newPos);
@@ -90,3 +89,5 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
 };
 
 export default Player;
+
+    

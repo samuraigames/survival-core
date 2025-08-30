@@ -48,10 +48,10 @@ export default function GameUI() {
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const isGameActive = gameState === 'playing' && !isPaused && !activeMinigame;
+  const isGameActive = gameState === 'playing' && !isPaused;
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
-    if (!isGameActive || !interaction) return;
+    if (!isGameActive || !interaction || activeMinigame) return;
     if (e.key === 'e' || e.key === 'E') {
       if (interaction?.zone === 'NAV_CONSOLE') {
         setActiveMinigame('navigation');
@@ -61,7 +61,7 @@ export default function GameUI() {
         setActiveMinigame('defense');
       }
     }
-  }, [isGameActive, interaction, engineStatus]);
+  }, [isGameActive, interaction, engineStatus, activeMinigame]);
   
   useEffect(() => {
     window.addEventListener('keydown', handleInteractionKey);
@@ -69,18 +69,20 @@ export default function GameUI() {
   }, [handleInteractionKey]);
   
   useEffect(() => {
-    if (!isGameActive) {
+    if (!isGameActive || activeMinigame) {
         if (interaction) setInteraction(null);
         return;
     }
       
     let closestZone: {prompt: string, zone: ZoneName} | null = null;
+    let inRange = false;
     
     for (const zoneKey in ZONES) {
       const zone = ZONES[zoneKey as keyof typeof ZONES];
       const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
 
       if (distance < INTERACTION_DISTANCE) {
+          inRange = true;
           if (zoneKey === 'ELECTRICAL_PANEL') {
               closestZone = {
                   prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
@@ -96,7 +98,8 @@ export default function GameUI() {
     if (closestZone?.prompt !== interaction?.prompt) {
         setInteraction(closestZone);
     }
-  }, [playerPosition, isGameActive, interaction, engineStatus]);
+
+  }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame]);
 
 
   const takeHit = useCallback(() => {
@@ -133,10 +136,11 @@ export default function GameUI() {
   }, [isGameActive, engineStatus, toast, setEngineStatus]);
 
   useEffect(() => {
-    if (isGameActive) {
-      lastEventTimeRef.current = Date.now();
+    if (gameState === 'playing' && !isPaused) {
       // Initial event scheduling
-      scheduleNextEvent(15000); 
+      if(!nextEventTimeoutRef.current) {
+         scheduleNextEvent(15000); 
+      }
 
       gameTimerRef.current = setInterval(() => {
         setGameTime(t => {
@@ -150,12 +154,14 @@ export default function GameUI() {
             return newTime;
         });
       }, 1000);
+    } else {
+       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     }
     return () => {
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     };
-  }, [isGameActive, scheduleNextEvent]);
+  }, [gameState, isPaused, scheduleNextEvent]);
 
   const handleStartGame = () => {
     resetGame();
@@ -174,12 +180,13 @@ export default function GameUI() {
   if (gameState === 'game-over') {
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
-
+  
   const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (success) {
       const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
-      setScore(s => s + points);
+      const newScore = score + points;
+      setScore(newScore);
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
       
@@ -189,13 +196,12 @@ export default function GameUI() {
         const difficulty = await adjustDifficulty({
           playerSkillLevel: playerSkillRef.current,
           timeSinceLastEvent: (Date.now() - lastEventTimeRef.current) / 1000,
-          currentScore: score + points,
+          currentScore: newScore,
         });
         setEventIntensity(difficulty.eventIntensity);
         scheduleNextEvent(difficulty.suggestedDelay * 1000);
       } catch (error) {
         console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
-        // Fallback: schedule next event with a default delay
         scheduleNextEvent(20000);
       }
 
@@ -207,8 +213,7 @@ export default function GameUI() {
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
-      // Schedule next event even on failure to keep game going
-      scheduleNextEvent(30000);
+      scheduleNextEvent(30000); // Schedule next event even on failure
     }
   };
 
@@ -341,7 +346,7 @@ export default function GameUI() {
             onPositionChange={setPlayerPosition}
             size={PLAYER_SIZE}
             bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
-            isMovementPaused={!isGameActive}
+            isMovementPaused={!isGameActive || activeMinigame !== null}
           />
         </div>
       </div>
@@ -364,3 +369,5 @@ export default function GameUI() {
     </motion.div>
   );
 }
+
+    
