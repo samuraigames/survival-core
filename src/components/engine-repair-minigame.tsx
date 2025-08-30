@@ -145,7 +145,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose(false)}>
       <DialogContent className="max-w-md bg-card border-accent text-foreground">
         <DialogHeader>
-          <DialogTitle className="font-headline text-accent">Engine Repair</DialogTitle>
+          <DialogTitle className="font-headline text-accent">Electrical Panel Repair</DialogTitle>
           <DialogDescription>Connect the matching colored wires to restore power. You are running out of time!</DialogDescription>
         </DialogHeader>
         <div className="relative w-full h-96">
@@ -196,7 +196,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
               >
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-green-400">System Restored!</h3>
-                  <p>Engine online.</p>
+                  <p>Electrical panel online.</p>
                 </div>
               </motion.div>
             )}
@@ -208,7 +208,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
                  className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm"
                >
                  <div className="text-center">
-                   <h3 className="text-3xl font-bold text-red-500">Engine Failure!</h3>
+                   <h3 className="text-3xl font-bold text-red-500">Power Failure!</h3>
                    <p>The core has gone critical.</p>
                  </div>
                </motion.div>

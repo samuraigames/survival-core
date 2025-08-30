@@ -11,20 +11,21 @@ import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Gamepad2, Wrench, Shield, Clock } from 'lucide-react';
+import { Gamepad2, Wrench, Shield, Clock, Pause, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from './ui/button';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 80;
 const GAME_AREA_HEIGHT = SHIP_HEIGHT - HUD_HEIGHT;
 const PLAYER_SIZE = 40;
-const INTERACTION_DISTANCE = 70; 
+const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 20 * 60; // 20 minutes to win
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 100, name: "Navigation" },
-  ENGINE_ROOM: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 80, name: "Engine" },
+  ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 80, name: "Electrical" },
   DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 100, name: "Defense" },
 };
 
@@ -35,6 +36,7 @@ export default function GameUI() {
   const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | 'defense' | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const [shipHits, setShipHits] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
   const [gameTime, setGameTime] = useState(0);
@@ -45,19 +47,20 @@ export default function GameUI() {
   const playerSkillRef = useRef(1);
   const gameTimerRef = useRef<NodeJS.Timeout>();
 
+  const isGameActive = gameState === 'playing' && !isPaused && !activeMinigame;
 
   const handleInteraction = useCallback((e: KeyboardEvent) => {
-    if (gameState !== 'playing' || activeMinigame) return;
+    if (gameState !== 'playing' || isPaused || activeMinigame) return;
     if (e.key === 'e' || e.key === 'E') {
       if (interaction?.zone === 'NAV_CONSOLE') {
         setActiveMinigame('navigation');
-      } else if (interaction?.zone === 'ENGINE_ROOM' && engineStatus === 'broken') {
+      } else if (interaction?.zone === 'ELECTRICAL_PANEL' && engineStatus === 'broken') {
         setActiveMinigame('engine');
       } else if (interaction?.zone === 'DEFENSE_CONSOLE') {
         setActiveMinigame('defense');
       }
     }
-  }, [gameState, activeMinigame, interaction, engineStatus]);
+  }, [gameState, activeMinigame, interaction, engineStatus, isPaused]);
   
   useEffect(() => {
     window.addEventListener('keydown', handleInteraction);
@@ -77,7 +80,7 @@ export default function GameUI() {
   }, [setGameState]);
 
   const runGameLoop = useCallback(async () => {
-    if (gameState !== 'playing') return;
+    if (!isGameActive) return;
     try {
       const difficulty = await adjustDifficulty({
         playerSkillLevel: playerSkillRef.current,
@@ -89,11 +92,11 @@ export default function GameUI() {
       
       const nextEventDelay = difficulty.suggestedDelay * 1000;
       gameLoopRef.current = setTimeout(() => {
-        if (gameState !== 'playing') return;
+        if (!isGameActive) return;
         const eventType = Math.random();
         if (eventType < 0.4 && engineStatus === 'ok') {
           setEngineStatus('broken');
-          toast({ title: "Warning!", description: "Engine malfunction detected!", variant: "destructive" });
+          toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
         } else if (eventType < 0.7) {
           setActiveMinigame('navigation');
           toast({ title: "Alert!", description: "Navigation challenge incoming!" });
@@ -109,10 +112,10 @@ export default function GameUI() {
       console.error("AI Difficulty Adjustment Failed:", error);
       gameLoopRef.current = setTimeout(runGameLoop, 20000); // Fallback timer
     }
-  }, [score, setEngineStatus, setEventIntensity, toast, gameState, engineStatus]);
+  }, [score, setEngineStatus, setEventIntensity, toast, isGameActive, engineStatus]);
 
   useEffect(() => {
-    if (gameState === 'playing') {
+    if (isGameActive) {
       lastEventTimeRef.current = Date.now();
       runGameLoop();
 
@@ -133,17 +136,17 @@ export default function GameUI() {
       if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     };
-  }, [gameState, runGameLoop]);
+  }, [isGameActive, runGameLoop]);
 
   useEffect(() => {
     const checkInteractions = () => {
-      if (gameState !== 'playing' || activeMinigame) {
+      if (!isGameActive) {
         if (interaction) setInteraction(null);
         return;
       }
       
       const navDist = Math.hypot(playerPosition.x - ZONES.NAV_CONSOLE.x, playerPosition.y - ZONES.NAV_CONSOLE.y);
-      const engineDist = Math.hypot(playerPosition.x - ZONES.ENGINE_ROOM.x, playerPosition.y - ZONES.ENGINE_ROOM.y);
+      const electricalDist = Math.hypot(playerPosition.x - ZONES.ELECTRICAL_PANEL.x, playerPosition.y - ZONES.ELECTRICAL_PANEL.y);
       const defenseDist = Math.hypot(playerPosition.x - ZONES.DEFENSE_CONSOLE.x, playerPosition.y - ZONES.DEFENSE_CONSOLE.y);
   
       let newInteraction: {prompt: string, zone: ZoneName} | null = null;
@@ -152,11 +155,11 @@ export default function GameUI() {
           newInteraction = { prompt: `Press [E] to use ${ZONES.DEFENSE_CONSOLE.name}`, zone: 'DEFENSE_CONSOLE' };
       } else if (navDist < INTERACTION_DISTANCE) {
           newInteraction = { prompt: `Press [E] to use ${ZONES.NAV_CONSOLE.name}`, zone: 'NAV_CONSOLE' };
-      } else if (engineDist < INTERACTION_DISTANCE) {
+      } else if (electricalDist < INTERACTION_DISTANCE) {
         if (engineStatus === 'broken') {
-          newInteraction = { prompt: `Press [E] to repair ${ZONES.ENGINE_ROOM.name}`, zone: 'ENGINE_ROOM' };
+          newInteraction = { prompt: `Press [E] to repair ${ZONES.ELECTRICAL_PANEL.name}`, zone: 'ELECTRICAL_PANEL' };
         } else {
-          newInteraction = { prompt: `${ZONES.ENGINE_ROOM.name}: All systems nominal.`, zone: 'ENGINE_ROOM' };
+          newInteraction = { prompt: `${ZONES.ELECTRICAL_PANEL.name}: All systems nominal.`, zone: 'ELECTRICAL_PANEL' };
         }
       }
       
@@ -167,7 +170,7 @@ export default function GameUI() {
 
     return () => clearInterval(intervalId);
 
-  }, [playerPosition, engineStatus, gameState, activeMinigame, interaction]);
+  }, [playerPosition, engineStatus, isGameActive, interaction]);
 
   const handleStartGame = () => {
     resetGame();
@@ -176,6 +179,7 @@ export default function GameUI() {
     setShipHits(0);
     setGameTime(0);
     setGameWon(false);
+    setIsPaused(false);
   };
   
   if (gameState === 'start') {
@@ -234,8 +238,12 @@ export default function GameUI() {
         {/* HUD */}
         <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT}}>
           <div className="p-4 flex justify-between items-center h-full">
-            <div>
+            <div className='flex items-center gap-4'>
               <Badge variant="outline" className="text-lg py-2 px-4 border-accent">Score: {score}</Badge>
+               <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
+                {isPaused ? <Play /> : <Pause />}
+                <span className="sr-only">{isPaused ? 'Resume' : 'Pause'}</span>
+              </Button>
             </div>
             <div className="flex items-center gap-4">
                <Badge variant="secondary" className="text-md py-2 px-4">
@@ -244,7 +252,7 @@ export default function GameUI() {
               </Badge>
               <Badge variant={engineStatus === 'ok' ? 'secondary' : 'destructive'} className="text-md py-2 px-4 transition-colors duration-500">
                 <Wrench className="mr-2 h-4 w-4"/>
-                Engine: <span className="font-bold ml-1">{engineStatus.toUpperCase()}</span>
+                Electrical: <span className="font-bold ml-1">{engineStatus.toUpperCase()}</span>
               </Badge>
                <Badge variant="secondary" className="text-md py-2 px-4">
                 <Clock className="mr-2 h-4 w-4"/>
@@ -276,9 +284,24 @@ export default function GameUI() {
             </motion.div>
           )}
           </AnimatePresence>
+           <AnimatePresence>
+            {isPaused && (
+                 <motion.div
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 exit={{ opacity: 0 }}
+                 className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30"
+               >
+                 <div className="text-center">
+                   <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
+                   <Button className="mt-4" onClick={() => setIsPaused(false)}>Resume</Button>
+                 </div>
+               </motion.div>
+            )}
+           </AnimatePresence>
           
           <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm z-0">Cockpit</div>
-          <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">Engine Room</div>
+          <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">Engineering</div>
 
           {/* Navigation Console */}
           <div className="absolute flex flex-col items-center" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y, transform: 'translate(-50%, -50%)' }}>
@@ -300,14 +323,14 @@ export default function GameUI() {
             <span className="text-xs mt-1 text-muted-foreground">{ZONES.DEFENSE_CONSOLE.name}</span>
           </div>
 
-          {/* Engine Room Console */}
-          <div className="absolute flex flex-col items-center" style={{ left: ZONES.ENGINE_ROOM.x, top: ZONES.ENGINE_ROOM.y, transform: 'translate(-50%, -50%)' }}>
+          {/* Electrical Panel */}
+          <div className="absolute flex flex-col items-center" style={{ left: ZONES.ELECTRICAL_PANEL.x, top: ZONES.ELECTRICAL_PANEL.y, transform: 'translate(-50%, -50%)' }}>
             <div className={`w-24 h-32 bg-slate-800 border-2 rounded-lg p-2 flex flex-col justify-between ${engineStatus === 'ok' ? 'border-green-500' : 'border-red-500 animate-engine-glow'}`}>
                 <div className="h-4 bg-slate-600 rounded-sm"></div>
                 <div className="h-12 bg-slate-700 rounded-md"></div>
                 <div className="h-4 bg-slate-600 rounded-sm"></div>
             </div>
-            <span className="text-xs mt-1 text-muted-foreground">{ZONES.ENGINE_ROOM.name}</span>
+            <span className="text-xs mt-1 text-muted-foreground">{ZONES.ELECTRICAL_PANEL.name}</span>
           </div>
 
           <Player
@@ -315,7 +338,7 @@ export default function GameUI() {
             onPositionChange={setPlayerPosition}
             size={PLAYER_SIZE}
             bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
-            isMovementPaused={!!activeMinigame}
+            isMovementPaused={!isGameActive}
           />
         </div>
       </div>
