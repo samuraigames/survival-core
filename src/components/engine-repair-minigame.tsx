@@ -27,7 +27,6 @@ type WirePuzzle = {
 };
 
 const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClose, difficulty }) => {
-  const [wirePuzzle, setWirePuzzle] = useState<WirePuzzle | null>(null);
   const [connections, setConnections] = useState<number[]>([]);
   const [currentDrag, setCurrentDrag] = useState<{ from: number; to: { x: number; y: number } } | null>(null);
   const [completed, setCompleted] = useState(false);
@@ -38,14 +37,17 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
 
   const numWires = useMemo(() => Math.max(3, Math.min(6, Math.floor(difficulty / 2) + 2)), [difficulty]);
 
-  const resetGame = useCallback(() => {
+  const wirePuzzle = useMemo<WirePuzzle>(() => {
     const startNodes = Array.from({ length: numWires }, (_, i) => i);
     const endNodes = shuffle([...startNodes]);
-    setWirePuzzle({ starts: startNodes, ends: endNodes });
+    return { starts: startNodes, ends: endNodes };
+  }, [numWires]);
+
+  const resetGame = useCallback(() => {
     setConnections(Array(numWires).fill(-1));
     setCompleted(false);
     setFailed(false);
-    setTimeLeft(60); // Reset timer
+    setTimeLeft(60);
 
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -251,3 +253,5 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
 };
 
 export default EngineRepairMinigame;
+
+    
