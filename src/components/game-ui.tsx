@@ -167,7 +167,7 @@ export default function GameUI() {
 
     return () => clearInterval(intervalId);
 
-  }, [playerPosition, engineStatus, gameState, activeMinigame]);
+  }, [playerPosition, engineStatus, gameState, activeMinigame, interaction]);
 
   const handleStartGame = () => {
     resetGame();
