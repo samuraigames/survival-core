@@ -253,5 +253,3 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
 };
 
 export default EngineRepairMinigame;
-
-    
