@@ -24,6 +24,7 @@ const GAME_AREA_HEIGHT = SHIP_HEIGHT;
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 10 * 60; // 10 minutes to win
+const EVENT_COOLDOWN_MS = 20000; // 20 second cooldown between events
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
@@ -51,6 +52,7 @@ export default function GameUI() {
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
   const asteroidAttackTimerRef = useRef<NodeJS.Timeout>();
+  const eventCooldownRef = useRef(false);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
@@ -67,13 +69,12 @@ export default function GameUI() {
     setTimeout(() => setIsShaking(false), 500);
   }, [setGameState]);
   
-  // New Asteroid Attack Logic
   useEffect(() => {
     if (isUnderAsteroidAttack && isGameActive && activeMinigame !== 'defense') {
       asteroidAttackTimerRef.current = setInterval(() => {
         takeHit();
         toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
-      }, 5000); // Ship takes a hit every 5 seconds
+      }, 5000); 
     }
     return () => {
       if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
@@ -135,46 +136,45 @@ export default function GameUI() {
 
   }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame, isUnderAsteroidAttack]);
 
-  const handleAIDifficultyAdjustment = useCallback(async () => {
-    try {
-      const difficulty = await adjustDifficulty({
-        playerSkillLevel: playerSkillRef.current,
-        timeSinceLastEvent: 0,
-        currentScore: score,
-      });
-      setEventIntensity(difficulty.eventIntensity);
-      scheduleNextEvent(difficulty.suggestedDelay * 1000);
-    } catch (error) {
-      console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
-      scheduleNextEvent(20000); // Fallback delay
+  const triggerRandomEvent = useCallback(() => {
+    if (!isGameActive || eventCooldownRef.current) return;
+
+    const eventType = Math.random();
+    if (eventType < 0.4 && engineStatus === 'ok') {
+      setEngineStatus('broken');
+      toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
+    } else if (eventType < 0.7) {
+      setActiveMinigame('navigation');
+      toast({ title: "Alert!", description: "Navigation challenge incoming!" });
+    } else {
+      setIsUnderAsteroidAttack(true);
+      toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
     }
-  }, [score, setEventIntensity]);
 
+    // Start cooldown
+    eventCooldownRef.current = true;
+    setTimeout(() => {
+      eventCooldownRef.current = false;
+    }, EVENT_COOLDOWN_MS);
 
-  const scheduleNextEvent = useCallback((delay: number) => {
-    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    
-    nextEventTimeoutRef.current = setTimeout(() => {
-      if (!isGameActive) return;
-
-      const eventType = Math.random();
-      if (eventType < 0.4 && engineStatus === 'ok') {
-        setEngineStatus('broken');
-        toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
-      } else if (eventType < 0.7) {
-        setActiveMinigame('navigation');
-        toast({ title: "Alert!", description: "Navigation challenge incoming!" });
-      } else {
-        setIsUnderAsteroidAttack(true);
-        toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
-      }
-    }, delay);
   }, [isGameActive, engineStatus, toast, setEngineStatus]);
+
+  // Main Event Scheduling Loop
+  useEffect(() => {
+    if (isGameActive) {
+      // initial event
+      if (!nextEventTimeoutRef.current) {
+         nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 15000);
+      }
+    }
+    return () => {
+      if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+    }
+  }, [isGameActive, triggerRandomEvent]);
+
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
-      scheduleNextEvent(15000); 
-
       gameTimerRef.current = setInterval(() => {
         setGameTime(t => {
             const newTime = t + 1;
@@ -191,10 +191,10 @@ export default function GameUI() {
        if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     }
     return () => {
-      if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+      if (gameTimer_ref.current) clearInterval(gameTimer_ref.current);
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     };
-  }, [gameState, isPaused, scheduleNextEvent]);
+  }, [gameState, isPaused]);
 
   const handleStartGame = () => {
     resetGame();
@@ -205,6 +205,9 @@ export default function GameUI() {
     setGameWon(false);
     setIsPaused(false);
     setIsUnderAsteroidAttack(false);
+    eventCooldownRef.current = false;
+    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 15000); 
   };
   
   if (gameState === 'start') {
@@ -213,36 +216,51 @@ export default function GameUI() {
   
   if (gameState === 'game-over') {
     if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
+    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
   
   const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (type === 'defense') {
-      setIsUnderAsteroidAttack(false); // The attack is over regardless of outcome.
+      setIsUnderAsteroidAttack(false); 
       if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
     }
 
     if (success) {
       const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
-      const newScore = score + points;
-      setScore(newScore);
+      setScore(s => s + points);
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
       
       playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
-      handleAIDifficultyAdjustment();
+      
+      try {
+        const difficulty = await adjustDifficulty({
+          playerSkillLevel: playerSkillRef.current,
+          timeSinceLastEvent: 0, 
+          currentScore: score + points,
+        });
+        setEventIntensity(difficulty.eventIntensity);
+      } catch (error) {
+        console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
+        setEventIntensity(e => Math.min(10, e + 1)); // Fallback: slightly increase intensity
+      }
 
     } else {
       if (type === 'engine') {
         setGameState('game-over');
+        return;
       } else if(type === 'defense' || type === 'navigation') {
         takeHit();
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
-      scheduleNextEvent(30000);
     }
+    
+    // Schedule the next event after the cooldown
+    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, EVENT_COOLDOWN_MS);
   };
 
   const formatTime = (seconds: number) => {
@@ -419,3 +437,4 @@ export default function GameUI() {
     </motion.div>
   );
 }
+    
