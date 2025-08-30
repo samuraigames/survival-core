@@ -39,7 +39,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
     const gameLoop = () => {
       if (!isMovementPaused) {
         let { x, y } = positionRef.current;
-        const speed = 5; // Increased speed
+        const speed = 5;
 
         if (keysPressed.current['w']) y -= speed;
         if (keysPressed.current['s']) y += speed;
@@ -56,7 +56,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         if (newPos.x !== positionRef.current.x || newPos.y !== positionRef.current.y) {
             positionRef.current = newPos;
             onPositionChange(newPos);
-            animate(scope.current, { x: newPos.x, y: newPos.y }); // Smoother animation
+            animate(scope.current, { x: newPos.x, y: newPos.y }, { type: "spring", stiffness: 700, damping: 35 });
         }
       }
 
