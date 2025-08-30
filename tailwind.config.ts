@@ -12,7 +12,6 @@ export default {
       fontFamily: {
         body: ['"Space Grotesk"', 'sans-serif'],
         headline: ['"Space Grotesk"', 'sans-serif'],
-        code: ['monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -55,16 +54,6 @@ export default {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
-        sidebar: {
-          DEFAULT: 'hsl(var(--sidebar-background))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))',
-        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -99,11 +88,11 @@ export default {
         'engine-glow': 'engine-glow 2s ease-in-out infinite',
       },
       backgroundImage: {
-        'grid-pattern': `linear-gradient(to right, hsl(var(--primary) / 0.05) 1px, transparent 1px),
-                         linear-gradient(to bottom, hsl(var(--primary) / 0.05) 1px, transparent 1px)`,
+        'grid-pattern': `linear-gradient(to right, hsl(var(--primary) / 0.1) 1px, transparent 1px),
+                         linear-gradient(to bottom, hsl(var(--primary) / 0.1) 1px, transparent 1px)`,
       },
       backgroundSize: {
-        'grid-pattern': '2rem 2rem',
+        'grid-pattern': '2.5rem 2.5rem',
       },
     },
   },

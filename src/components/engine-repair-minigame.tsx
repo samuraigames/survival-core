@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { shuffle } from 'lodash';
 import { Progress } from './ui/progress';
@@ -34,36 +33,40 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
 
   const numWires = useMemo(() => Math.max(3, Math.min(6, Math.floor(difficulty / 2) + 2)), [difficulty]);
 
+  const resetGame = useCallback(() => {
+    const startNodes = Array.from({ length: numWires }, (_, i) => i);
+    const solution = [...startNodes];
+    const endNodes = shuffle([...startNodes]);
+    setWirePuzzle({ starts: startNodes, ends: endNodes, solution });
+    setConnections(Array(numWires).fill(-1));
+    setCompleted(false);
+    setFailed(false);
+    setTimeLeft(60);
+
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+          if (prev <= 1) {
+              if(timerRef.current) clearInterval(timerRef.current);
+              setFailed(true);
+              setTimeout(() => onClose(false), 1500);
+              return 0;
+          }
+          return prev - 1;
+      });
+    }, 1000);
+  }, [numWires, onClose]);
+
   useEffect(() => {
     if (open) {
-      const startNodes = Array.from({ length: numWires }, (_, i) => i);
-      const solution = [...startNodes];
-      const endNodes = shuffle([...startNodes]);
-      setWirePuzzle({ starts: startNodes, ends: endNodes, solution });
-      setConnections(Array(numWires).fill(-1));
-      setCompleted(false);
-      setFailed(false);
-      setTimeLeft(60);
-      
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-            if (prev <= 1) {
-                clearInterval(timerRef.current!);
-                setFailed(true);
-                setTimeout(() => onClose(false), 1500);
-                return 0;
-            }
-            return prev - 1;
-        });
-      }, 1000);
-
+      resetGame();
     } else {
         if (timerRef.current) clearInterval(timerRef.current);
     }
     return () => {
         if (timerRef.current) clearInterval(timerRef.current);
     }
-  }, [open, numWires, onClose]);
+  }, [open, resetGame]);
 
   const getPointCoords = (index: number, side: 'left' | 'right') => {
     const y = (index + 1) * (300 / (numWires + 1));
@@ -75,6 +78,12 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
     if (completed || failed) return;
     const svgRect = svgRef.current?.getBoundingClientRect();
     if (!svgRect) return;
+    
+    // Un-set the current connection if user clicks on an already connected start node
+    const newConnections = [...connections];
+    newConnections[index] = -1;
+    setConnections(newConnections);
+
     setCurrentDrag({
       from: index,
       to: { x: e.clientX - svgRect.left, y: e.clientY - svgRect.top },
@@ -94,7 +103,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
   const handleMouseUp = (e: React.MouseEvent, endIndex: number) => {
     if (!currentDrag || completed || failed) return;
     
-    // Check if the end point is already connected
+    // Check if the end point is already connected to another wire
     if (connections.some(c => c === endIndex)) {
         setCurrentDrag(null);
         return;
@@ -109,17 +118,27 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
   };
 
   const checkCompletion = (conns: number[]) => {
+    let allCorrect = true;
+    let allConnected = true;
     for (let i = 0; i < numWires; i++) {
-        const startNode = wirePuzzle.starts[i];
-        const expectedEndNode = wirePuzzle.solution[i];
-        const connectedEndNodeIndex = conns[i];
-        if (connectedEndNodeIndex === -1 || wirePuzzle.ends[connectedEndNodeIndex] !== expectedEndNode) {
-            return;
+        if(conns[i] === -1) {
+            allConnected = false;
+            allCorrect = false;
+            break;
+        }
+        const startNodeColorIndex = wirePuzzle.starts[i];
+        const connectedEndNodeColorIndex = wirePuzzle.ends[conns[i]];
+        
+        if (startNodeColorIndex !== connectedEndNodeColorIndex) {
+            allCorrect = false;
         }
     }
-    setCompleted(true);
-    if(timerRef.current) clearInterval(timerRef.current);
-    setTimeout(() => onClose(true), 1500);
+
+    if (allConnected && allCorrect) {
+      setCompleted(true);
+      if(timerRef.current) clearInterval(timerRef.current);
+      setTimeout(() => onClose(true), 1500);
+    }
   };
   
   const Node = ({ index, side }: { index: number; side: 'left' | 'right' }) => {
@@ -129,14 +148,15 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
       <motion.circle
         cx={x}
         cy={y}
-        r={15}
+        r={20}
         fill={color}
         stroke="#ffffff"
-        strokeWidth="2"
+        strokeWidth="3"
         className="cursor-pointer"
-        whileHover={{ scale: 1.2 }}
+        whileHover={{ scale: 1.1 }}
         onMouseDown={side === 'left' ? (e) => handleMouseDown(e, index) : undefined}
         onMouseUp={side === 'right' ? (e) => handleMouseUp(e, index) : undefined}
+        onMouseLeave={() => setCurrentDrag(null)}
       />
     );
   };
@@ -158,7 +178,9 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
               if (endIndex === -1) return null;
               const startCoords = getPointCoords(startIndex, 'left');
               const endCoords = getPointCoords(endIndex, 'right');
-              const isCorrect = wirePuzzle.ends[endIndex] === wirePuzzle.solution[startIndex];
+              const startColorIndex = wirePuzzle.starts[startIndex];
+              const endColorIndex = wirePuzzle.ends[endIndex];
+              const isCorrect = startColorIndex === endColorIndex;
               return (
                 <line
                   key={`${startIndex}-${endIndex}`}
@@ -166,8 +188,8 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
                   y1={startCoords.y}
                   x2={endCoords.x}
                   y2={endCoords.y}
-                  stroke={isCorrect ? '#22c55e' : '#ef4444'}
-                  strokeWidth="6"
+                  stroke={isCorrect ? WIRE_COLORS[startColorIndex] : '#ef4444'}
+                  strokeWidth="8"
                   strokeLinecap="round"
                 />
               );
@@ -179,9 +201,9 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
                 y1={getPointCoords(currentDrag.from, 'left').y}
                 x2={currentDrag.to.x}
                 y2={currentDrag.to.y}
-                stroke={WIRE_COLORS[currentDrag.from]}
-                strokeWidth="6"
-                strokeDasharray="8 4"
+                stroke={WIRE_COLORS[wirePuzzle.starts[currentDrag.from]]}
+                strokeWidth="8"
+                strokeDasharray="10 5"
                 strokeLinecap="round"
               />
             )}

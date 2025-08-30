@@ -29,7 +29,7 @@ const Asteroid = ({ x, y }: { x: number, y: number }) => (
     animate={{ scale: 1 }}
     exit={{ scale: 0, transition: { duration: 0.2 } }}
   >
-    <div className="w-full h-full bg-slate-600 rounded-full border-2 border-slate-400 animate-pulse"></div>
+    <div className="w-full h-full bg-slate-600 rounded-md border-2 border-slate-400 animate-pulse"></div>
   </motion.div>
 );
 
@@ -60,6 +60,8 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   const [hits, setHits] = useState(0);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [win, setWin] = useState(false);
+
   const gameLoopRef = useRef<number>();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
@@ -70,6 +72,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     setHits(0);
     setScore(0);
     setGameOver(false);
+    setWin(false);
     keysPressed.current = {};
   }, []);
 
@@ -94,8 +97,9 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
       
       const gameDuration = 30000; // 30 seconds
       const winTimeout = setTimeout(() => {
+        setWin(true);
         if (!gameOver) {
-          onClose(true);
+          setTimeout(() => onClose(true), 1500);
         }
       }, gameDuration);
 
@@ -110,7 +114,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 
   // Main Game Loop
   const gameLoop = useCallback(() => {
-    if (gameOver) return;
+    if (gameOver || win) return;
 
     // Move Asteroids
     setAsteroids(prev =>
@@ -139,7 +143,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
                 if (distance < 15) { // Collision radius (bullet vs asteroid center)
                     destroyedAsteroidIds.add(asteroid.id);
                     bulletDestroyed = true;
-                    newScore += 10;
+                    newScore += 1;
                     break; 
                 }
             }
@@ -161,13 +165,13 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     setShipX(prevX => {
       const speed = 5;
       let newX = prevX;
-      if (keysPressed.current['a'] || keysPressed.current['ArrowLeft']) newX -= speed;
-      if (keysPressed.current['d'] || keysPressed.current['ArrowRight']) newX += speed;
+      if (keysPressed.current['a'] || keysPressed.current['arrowleft']) newX -= speed;
+      if (keysPressed.current['d'] || keysPressed.current['arrowright']) newX += speed;
       return Math.max(0, Math.min(newX, GAME_WIDTH - SHIP_WIDTH));
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, asteroids, score]);
+  }, [gameOver, asteroids, score, win]);
 
   // Game over check
   useEffect(() => {
@@ -181,17 +185,18 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   // Keyboard input handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+        e.preventDefault();
         if (e.key === ' ' || e.code === 'Space') {
-            e.preventDefault();
             if (!gameOver) {
                 setBullets(prev => [...prev, { id: Date.now(), x: shipX + SHIP_WIDTH / 2 - 2, y: GAME_HEIGHT - SHIP_HEIGHT }]);
             }
         } else {
-            keysPressed.current[e.key] = true;
+            keysPressed.current[e.key.toLowerCase()] = true;
         }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-        keysPressed.current[e.key] = false;
+        e.preventDefault();
+        keysPressed.current[e.key.toLowerCase()] = false;
     };
 
     if (open) {
@@ -208,7 +213,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 
   // Start/stop game loop
   useEffect(() => {
-    if (open && !gameOver) {
+    if (open && !gameOver && !win) {
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     } else {
       if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
@@ -216,10 +221,10 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     return () => {
       if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     }
-  }, [open, gameOver, gameLoop]);
+  }, [open, gameOver, gameLoop, win]);
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(true); }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(win); }}>
       <DialogContent className="max-w-xl bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Asteroid Defense</DialogTitle>
@@ -255,15 +260,15 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
           </div>
           
            <AnimatePresence>
-            {gameOver && (
+            {(gameOver || win) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm"
               >
                 <div className="text-center">
-                  <h3 className="text-3xl font-bold text-red-500">Shields Down!</h3>
-                  <p>The ship has sustained critical damage.</p>
+                  <h3 className={`text-3xl font-bold ${win ? 'text-green-400' : 'text-red-500'}`}>{win ? "Threat Neutralized!" : "Shields Down!"}</h3>
+                  <p>{win ? "You cleared the asteroid field." : "The ship has sustained critical damage."}</p>
                 </div>
               </motion.div>
             )}

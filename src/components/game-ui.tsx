@@ -196,7 +196,7 @@ export default function GameUI() {
   const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (success) {
-      const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
+      const points = type === 'engine' ? 15 : (type === 'navigation' ? 10 : 20);
       setScore(s => s + points * Math.floor(eventIntensity / 2));
       toast({ title: "Success!", description: `+${points * Math.floor(eventIntensity / 2)} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
@@ -364,5 +364,3 @@ export default function GameUI() {
     </motion.div>
   );
 }
-
-    

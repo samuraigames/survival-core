@@ -3,7 +3,7 @@ import { GameProvider } from '@/contexts/game-context';
 
 export default function Home() {
   return (
-    <main className="w-screen h-screen overflow-hidden bg-black flex items-center justify-center">
+    <main className="w-screen h-screen overflow-hidden bg-background flex items-center justify-center">
       <GameProvider>
         <GameUI />
       </GameProvider>

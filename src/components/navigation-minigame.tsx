@@ -29,7 +29,6 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     const newPath = [];
     let y = GAME_HEIGHT / 2;
     const segments = 50;
-    const pathComplexity = difficulty * 0.5;
     const pathVolatility = difficulty * 2;
 
     for (let i = 0; i < segments; i++) {
@@ -54,7 +53,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   
   const gameLoop = useCallback(() => {
     if (gameOver !== null) {
-      cancelAnimationFrame(gameLoopRef.current!);
+      if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
       return;
     }
 
@@ -62,8 +61,8 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     setShipY(prevY => {
         const speed = 4;
         let newY = prevY;
-        if(keysPressed.current['ArrowUp'] || keysPressed.current['w']) newY -= speed;
-        if(keysPressed.current['ArrowDown'] || keysPressed.current['s']) newY += speed;
+        if(keysPressed.current['arrowup'] || keysPressed.current['w']) newY -= speed;
+        if(keysPressed.current['arrowdown'] || keysPressed.current['s']) newY += speed;
         return Math.max(0, Math.min(GAME_HEIGHT - SHIP_SIZE, newY));
     });
 
@@ -104,21 +103,25 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
     keysPressed.current[e.key.toLowerCase()] = true;
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
     keysPressed.current[e.key.toLowerCase()] = false;
   }, []);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    if(open) {
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+    }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleKeyDown, handleKeyUp]);
+  }, [open, handleKeyDown, handleKeyUp]);
 
   const pathD = path.map((y, i) => {
     const x = (i / (path.length - 1)) * GAME_WIDTH;

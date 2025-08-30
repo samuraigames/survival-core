@@ -13,7 +13,7 @@ interface PlayerProps {
 
 const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size, bounds, isMovementPaused }) => {
   const [scope, animate] = useAnimate();
-  const [position, setPosition] = useState(initialPosition);
+  const positionRef = useRef(initialPosition);
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const gameLoopRef = useRef<number>();
 
@@ -37,10 +37,9 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
   // Game loop for smooth movement
   useEffect(() => {
     const gameLoop = () => {
-      let newPos = position;
       if (!isMovementPaused) {
-        let { x, y } = position;
-        const speed = 4; // Reduced speed for smoother feel
+        let { x, y } = positionRef.current;
+        const speed = 4;
 
         if (keysPressed.current['w']) y -= speed;
         if (keysPressed.current['s']) y += speed;
@@ -51,12 +50,12 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         const clampedX = Math.max(size / 2, Math.min(x, bounds.width - size / 2));
         const clampedY = Math.max(size / 2, Math.min(y, bounds.height - size / 2));
         
-        newPos = { x: clampedX, y: clampedY };
+        const newPos = { x: clampedX, y: clampedY };
+        positionRef.current = newPos;
+
+        onPositionChange(newPos);
+        animate(scope.current, { x: newPos.x, y: newPos.y }, { duration: 0.1, ease: 'linear' });
       }
-      
-      setPosition(newPos);
-      onPositionChange(newPos);
-      animate(scope.current, { x: newPos.x, y: newPos.y }, { duration: 0.1, ease: 'linear' });
 
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
@@ -68,8 +67,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMovementPaused, bounds, size]);
+  }, [isMovementPaused, bounds.width, bounds.height, size, onPositionChange, animate, scope]);
 
   return (
     <motion.div
