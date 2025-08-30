@@ -10,7 +10,7 @@ import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Clock, Pause, Play, AlertTriangle } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -223,7 +223,7 @@ export default function GameUI() {
     setIsNavCourseDeviating(false);
     eventCooldownRef.current = false;
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 5000); 
+    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 8000); 
   };
   
   if (gameState === 'start') {
@@ -272,13 +272,6 @@ export default function GameUI() {
     nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, EVENT_COOLDOWN_MS);
   };
 
-  const formatTime = (seconds: number) => {
-    const totalSeconds = WIN_TIME_SECONDS - seconds;
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  
   const getPromptPosition = () => {
     if (!interaction?.zone) return { display: 'none' };
     const zone = ZONES[interaction.zone];
@@ -298,6 +291,7 @@ export default function GameUI() {
 
   const alertMessage = getAlertMessage();
   const shipIntegrityPercentage = 100 - shipHits * 10;
+  const journeyProgressPercentage = (gameTime / WIN_TIME_SECONDS) * 100;
 
   return (
     <motion.div 
@@ -322,18 +316,19 @@ export default function GameUI() {
                 </div>
             </div>
 
-            <div className="flex flex-col items-center">
-                <Badge variant="secondary" className="text-md py-2 px-4">
-                    <Clock className="mr-2 h-4 w-4"/>
-                    Time Left: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
-                </Badge>
+            <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2 w-full max-w-xs">
+                  <Rocket className="w-5 h-5 text-accent" />
+                  <Progress value={journeyProgressPercentage} className="w-full h-2" />
+                  <Globe className="w-5 h-5 text-green-400" />
+                </div>
+
                 <AnimatePresence>
                 {alertMessage && (
                     <motion.div 
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="mt-1"
                     >
                     <Badge variant='destructive' className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse">
                         <AlertTriangle className="mr-2 h-4 w-4"/>
