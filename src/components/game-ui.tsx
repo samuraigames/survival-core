@@ -26,7 +26,7 @@ const WIN_TIME_SECONDS = 10 * 60; // 10 minutes to win
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
-  ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 80, name: "Electrical" },
+  ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 150, name: "Electrical" },
   DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 150, name: "Defense" },
 };
 
@@ -44,7 +44,6 @@ export default function GameUI() {
   const [gameWon, setGameWon] = useState(false);
   const { toast } = useToast();
   
-  const lastEventTimeRef = useRef<number>(Date.now());
   const playerSkillRef = useRef(1);
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
@@ -77,14 +76,12 @@ export default function GameUI() {
     }
       
     let closestZone: {prompt: string, zone: ZoneName} | null = null;
-    let inRange = false;
     
     for (const zoneKey in ZONES) {
       const zone = ZONES[zoneKey as keyof typeof ZONES];
       const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
 
       if (distance < INTERACTION_DISTANCE) {
-          inRange = true;
           if (zoneKey === 'ELECTRICAL_PANEL') {
               closestZone = {
                   prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
@@ -116,7 +113,7 @@ export default function GameUI() {
     setTimeout(() => setIsShaking(false), 500);
   }, [setGameState]);
 
-  const triggerNextEvent = useCallback((delay: number) => {
+  const scheduleNextEvent = useCallback((delay: number) => {
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     
     nextEventTimeoutRef.current = setTimeout(() => {
@@ -133,35 +130,30 @@ export default function GameUI() {
           setActiveMinigame('defense');
           toast({ title: "INCOMING!", description: "Asteroid field detected!" });
       }
-      lastEventTimeRef.current = Date.now();
-      // After an event, schedule the next one based on current intensity
-      triggerNextEvent((35 - eventIntensity * 2) * 1000);
     }, delay);
-  }, [isGameActive, engineStatus, toast, setEngineStatus, eventIntensity]);
+  }, [isGameActive, engineStatus, toast, setEngineStatus]);
 
   const handleAIDifficultyAdjustment = useCallback(async () => {
     try {
       const difficulty = await adjustDifficulty({
         playerSkillLevel: playerSkillRef.current,
-        timeSinceLastEvent: (Date.now() - lastEventTimeRef.current) / 1000,
+        timeSinceLastEvent: 0, // This is now less critical, can be simplified
         currentScore: score,
       });
       setEventIntensity(difficulty.eventIntensity);
-      // Schedule the next event with the new delay from AI
-      triggerNextEvent(difficulty.suggestedDelay * 1000);
+      // Schedule the next event with a new delay from AI
+      scheduleNextEvent(difficulty.suggestedDelay * 1000);
     } catch (error) {
       console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
       // Fallback: schedule next event with a static delay
-      triggerNextEvent(20000);
+      scheduleNextEvent(20000);
     }
-  }, [score, setEventIntensity, triggerNextEvent]);
+  }, [score, setEventIntensity, scheduleNextEvent]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
       // Initial event scheduling
-      if(!nextEventTimeoutRef.current) {
-         triggerNextEvent(15000); 
-      }
+      scheduleNextEvent(15000); 
 
       gameTimerRef.current = setInterval(() => {
         setGameTime(t => {
@@ -182,7 +174,7 @@ export default function GameUI() {
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     };
-  }, [gameState, isPaused, triggerNextEvent]);
+  }, [gameState, isPaused, scheduleNextEvent]);
 
   const handleStartGame = () => {
     resetGame();
@@ -205,7 +197,7 @@ export default function GameUI() {
   const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (success) {
-      const points = type === 'engine' ? 15 : (type === 'navigation' ? 10 : 20);
+      const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
       const newScore = score + points;
       setScore(newScore);
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
@@ -224,7 +216,7 @@ export default function GameUI() {
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
       // Schedule next event even on failure, but with a penalty delay
-      triggerNextEvent(30000);
+      scheduleNextEvent(30000);
     }
   };
 
