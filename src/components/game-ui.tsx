@@ -221,8 +221,9 @@ export default function GameUI() {
   };
 
   const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const totalSeconds = WIN_TIME_SECONDS - seconds;
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   
@@ -263,7 +264,7 @@ export default function GameUI() {
               </Badge>
                <Badge variant="secondary" className="text-md py-2 px-4">
                 <Clock className="mr-2 h-4 w-4"/>
-                Time: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
+                Time Left: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
               </Badge>
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
