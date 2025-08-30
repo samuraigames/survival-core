@@ -61,7 +61,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 
     // Update ship position
     setShipY(prevY => {
-        const speed = 4;
+        const speed = 3;
         let newY = prevY;
         if(keysPressed.current['arrowup'] || keysPressed.current['w']) newY -= speed;
         if(keysPressed.current['arrowdown'] || keysPressed.current['s']) newY += speed;
