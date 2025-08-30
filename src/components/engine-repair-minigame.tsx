@@ -36,12 +36,12 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
   const resetGame = useCallback(() => {
     const startNodes = Array.from({ length: numWires }, (_, i) => i);
     const solution = [...startNodes];
-    const endNodes = shuffle([...startNodes]);
+    const endNodes = shuffle([...startNodes]); // Ensure a new shuffle on each reset
     setWirePuzzle({ starts: startNodes, ends: endNodes, solution });
     setConnections(Array(numWires).fill(-1));
     setCompleted(false);
     setFailed(false);
-    setTimeLeft(60);
+    setTimeLeft(60); // Reset timer
 
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -143,7 +143,9 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
   
   const Node = ({ index, side }: { index: number; side: 'left' | 'right' }) => {
     const { x, y } = getPointCoords(index, side);
-    const color = WIRE_COLORS[side === 'left' ? wirePuzzle.starts[index] : wirePuzzle.ends[index]];
+    const colorIndex = side === 'left' ? wirePuzzle.starts[index] : wirePuzzle.ends[index];
+    const color = colorIndex !== undefined ? WIRE_COLORS[colorIndex] : '#ffffff';
+    
     return (
       <motion.circle
         cx={x}
@@ -171,7 +173,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
         <div className="relative w-full h-96">
           <Progress value={(timeLeft/60) * 100} className="mb-2 h-2" />
           <svg ref={svgRef} className="w-full h-80" onMouseMove={handleMouseMove} onMouseUp={() => setCurrentDrag(null)}>
-            {wirePuzzle.starts.map(i => <Node key={`start-${i}`} index={i} side="left" />)}
+            {wirePuzzle.starts.map((_,i) => <Node key={`start-${i}`} index={i} side="left" />)}
             {wirePuzzle.ends.map((_, i) => <Node key={`end-${i}`} index={i} side="right" />)}
 
             {connections.map((endIndex, startIndex) => {
@@ -181,6 +183,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
               const startColorIndex = wirePuzzle.starts[startIndex];
               const endColorIndex = wirePuzzle.ends[endIndex];
               const isCorrect = startColorIndex === endColorIndex;
+              const color = isCorrect ? WIRE_COLORS[startColorIndex] : '#ef4444';
               return (
                 <line
                   key={`${startIndex}-${endIndex}`}
@@ -188,7 +191,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
                   y1={startCoords.y}
                   x2={endCoords.x}
                   y2={endCoords.y}
-                  stroke={isCorrect ? WIRE_COLORS[startColorIndex] : '#ef4444'}
+                  stroke={color}
                   strokeWidth="8"
                   strokeLinecap="round"
                 />

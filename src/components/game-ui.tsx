@@ -14,19 +14,20 @@ import { Badge } from './ui/badge';
 import { Gamepad2, Wrench, Shield, Clock, Pause, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
+import Image from 'next/image';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 80;
-const GAME_AREA_HEIGHT = SHIP_HEIGHT - HUD_HEIGHT;
+const GAME_AREA_HEIGHT = SHIP_HEIGHT; // Game area now takes full height
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
-const WIN_TIME_SECONDS = 20 * 60; // 20 minutes to win
+const WIN_TIME_SECONDS = 10 * 60; // 10 minutes to win
 
 const ZONES = {
-  NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 100, name: "Navigation" },
+  NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
   ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 80, name: "Electrical" },
-  DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 100, name: "Defense" },
+  DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 150, name: "Defense" },
 };
 
 type ZoneName = keyof typeof ZONES | null;
@@ -49,6 +50,7 @@ export default function GameUI() {
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
 
   const isGameActive = gameState === 'playing' && !isPaused;
+  const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
     if (!isGameActive || !interaction || activeMinigame) return;
@@ -114,7 +116,7 @@ export default function GameUI() {
     setTimeout(() => setIsShaking(false), 500);
   }, [setGameState]);
 
-  const scheduleNextEvent = useCallback((delay: number) => {
+  const triggerNextEvent = useCallback((delay: number) => {
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     
     nextEventTimeoutRef.current = setTimeout(() => {
@@ -132,14 +134,33 @@ export default function GameUI() {
           toast({ title: "INCOMING!", description: "Asteroid field detected!" });
       }
       lastEventTimeRef.current = Date.now();
+      // After an event, schedule the next one based on current intensity
+      triggerNextEvent((35 - eventIntensity * 2) * 1000);
     }, delay);
-  }, [isGameActive, engineStatus, toast, setEngineStatus]);
+  }, [isGameActive, engineStatus, toast, setEngineStatus, eventIntensity]);
+
+  const handleAIDifficultyAdjustment = useCallback(async () => {
+    try {
+      const difficulty = await adjustDifficulty({
+        playerSkillLevel: playerSkillRef.current,
+        timeSinceLastEvent: (Date.now() - lastEventTimeRef.current) / 1000,
+        currentScore: score,
+      });
+      setEventIntensity(difficulty.eventIntensity);
+      // Schedule the next event with the new delay from AI
+      triggerNextEvent(difficulty.suggestedDelay * 1000);
+    } catch (error) {
+      console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
+      // Fallback: schedule next event with a static delay
+      triggerNextEvent(20000);
+    }
+  }, [score, setEventIntensity, triggerNextEvent]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
       // Initial event scheduling
       if(!nextEventTimeoutRef.current) {
-         scheduleNextEvent(15000); 
+         triggerNextEvent(15000); 
       }
 
       gameTimerRef.current = setInterval(() => {
@@ -161,7 +182,7 @@ export default function GameUI() {
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     };
-  }, [gameState, isPaused, scheduleNextEvent]);
+  }, [gameState, isPaused, triggerNextEvent]);
 
   const handleStartGame = () => {
     resetGame();
@@ -184,7 +205,7 @@ export default function GameUI() {
   const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (success) {
-      const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
+      const points = type === 'engine' ? 15 : (type === 'navigation' ? 10 : 20);
       const newScore = score + points;
       setScore(newScore);
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
@@ -192,18 +213,7 @@ export default function GameUI() {
       
       playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
 
-      try {
-        const difficulty = await adjustDifficulty({
-          playerSkillLevel: playerSkillRef.current,
-          timeSinceLastEvent: (Date.now() - lastEventTimeRef.current) / 1000,
-          currentScore: newScore,
-        });
-        setEventIntensity(difficulty.eventIntensity);
-        scheduleNextEvent(difficulty.suggestedDelay * 1000);
-      } catch (error) {
-        console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
-        scheduleNextEvent(20000);
-      }
+      handleAIDifficultyAdjustment();
 
     } else {
       if (type === 'engine') {
@@ -213,7 +223,8 @@ export default function GameUI() {
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
-      scheduleNextEvent(30000); // Schedule next event even on failure
+      // Schedule next event even on failure, but with a penalty delay
+      triggerNextEvent(30000);
     }
   };
 
@@ -235,16 +246,12 @@ export default function GameUI() {
 
   return (
     <motion.div 
-      className="w-full h-full flex items-center justify-center font-body text-foreground bg-black"
+      className="w-full h-full flex flex-col items-center justify-center font-body text-foreground bg-black"
       animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
       transition={{ duration: 0.5 }}
     >
-      <div
-        className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden flex flex-col"
-        style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
-      >
-        {/* HUD */}
-        <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT}}>
+      {/* HUD */}
+      <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT, width: SHIP_WIDTH}}>
           <div className="p-4 flex justify-between items-center h-full">
             <div className='flex items-center gap-4'>
               <Badge variant="outline" className="text-lg py-2 px-4 border-accent">Score: {score}</Badge>
@@ -277,8 +284,12 @@ export default function GameUI() {
           </div>
         </div>
 
+      <div
+        className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden flex flex-col"
+        style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
+      >
         {/* Game Area */}
-        <div className="relative w-full bg-grid-pattern bg-repeat" style={{ height: GAME_AREA_HEIGHT }}>
+        <div className="relative w-full h-full bg-grid-pattern bg-repeat">
           <AnimatePresence>
           {interaction && (
             <motion.div
@@ -314,8 +325,12 @@ export default function GameUI() {
           {/* Navigation Console */}
           <div className="absolute flex flex-col items-center" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y, transform: 'translate(-50%, -50%)' }}>
             <div className="w-24 h-16 bg-slate-700 border-2 border-slate-500 rounded-md p-1">
-              <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
-                  <div className="w-16 h-8 bg-cyan-400/20 rounded-sm border border-cyan-400 animate-pulse"></div>
+              <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center overflow-hidden">
+                  {isApproachingVictory ? (
+                     <Image src="https://picsum.photos/200/150" data-ai-hint="photo earth" alt="Earth" width={96} height={64} className="object-cover" />
+                  ) : (
+                    <div className="w-16 h-8 bg-cyan-400/20 rounded-sm border border-cyan-400 animate-pulse"></div>
+                  )}
               </div>
             </div>
             <span className="text-xs mt-1 text-muted-foreground">{ZONES.NAV_CONSOLE.name}</span>
@@ -369,5 +384,3 @@ export default function GameUI() {
     </motion.div>
   );
 }
-
-    
