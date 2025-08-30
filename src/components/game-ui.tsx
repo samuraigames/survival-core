@@ -42,10 +42,11 @@ export default function GameUI() {
   const [gameTime, setGameTime] = useState(0);
   const [gameWon, setGameWon] = useState(false);
   const { toast } = useToast();
-  const gameLoopRef = useRef<NodeJS.Timeout>();
+  
   const lastEventTimeRef = useRef<number>(Date.now());
   const playerSkillRef = useRef(1);
   const gameTimerRef = useRef<NodeJS.Timeout>();
+  const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
 
   const isGameActive = gameState === 'playing' && !isPaused && !activeMinigame;
 
@@ -68,38 +69,33 @@ export default function GameUI() {
   }, [handleInteractionKey]);
   
   useEffect(() => {
-    const checkInteractions = () => {
-      if (!isGameActive) {
+    if (!isGameActive) {
         if (interaction) setInteraction(null);
         return;
-      }
+    }
       
-      let closestZone: {prompt: string, zone: ZoneName} | null = null;
-      
-      for (const zoneKey in ZONES) {
-        const zone = ZONES[zoneKey as keyof typeof ZONES];
-        const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
+    let closestZone: {prompt: string, zone: ZoneName} | null = null;
+    
+    for (const zoneKey in ZONES) {
+      const zone = ZONES[zoneKey as keyof typeof ZONES];
+      const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
 
-        if (distance < INTERACTION_DISTANCE) {
-            if (zoneKey === 'ELECTRICAL_PANEL') {
-                closestZone = {
-                    prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
-                    zone: 'ELECTRICAL_PANEL'
-                };
-            } else {
-                 closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
-            }
-            break; 
-        }
+      if (distance < INTERACTION_DISTANCE) {
+          if (zoneKey === 'ELECTRICAL_PANEL') {
+              closestZone = {
+                  prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
+                  zone: 'ELECTRICAL_PANEL'
+              };
+          } else {
+               closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
+          }
+          break; 
       }
-      
-      if (closestZone?.prompt !== interaction?.prompt) {
-          setInteraction(closestZone);
-      }
-    };
-
-    const intervalId = setInterval(checkInteractions, 100);
-    return () => clearInterval(intervalId);
+    }
+    
+    if (closestZone?.prompt !== interaction?.prompt) {
+        setInteraction(closestZone);
+    }
   }, [playerPosition, isGameActive, interaction, engineStatus]);
 
 
@@ -115,45 +111,32 @@ export default function GameUI() {
     setTimeout(() => setIsShaking(false), 500);
   }, [setGameState]);
 
-  const runGameLoop = useCallback(async () => {
-    if (!isGameActive) return;
-    try {
-      const difficulty = await adjustDifficulty({
-        playerSkillLevel: playerSkillRef.current,
-        timeSinceLastEvent: (Date.now() - lastEventTimeRef.current) / 1000,
-        currentScore: score,
-      });
+  const scheduleNextEvent = useCallback((delay: number) => {
+    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+    
+    nextEventTimeoutRef.current = setTimeout(() => {
+      if (!isGameActive) return;
 
-      setEventIntensity(difficulty.eventIntensity);
-      
-      const nextEventDelay = difficulty.suggestedDelay * 1000;
-      gameLoopRef.current = setTimeout(() => {
-        if (!isGameActive) return;
-        const eventType = Math.random();
-        if (eventType < 0.4 && engineStatus === 'ok') {
-          setEngineStatus('broken');
-          toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
-        } else if (eventType < 0.7) {
-          setActiveMinigame('navigation');
-          toast({ title: "Alert!", description: "Navigation challenge incoming!" });
-        } else {
-            setActiveMinigame('defense');
-            toast({ title: "INCOMING!", description: "Asteroid field detected!" });
-        }
-        lastEventTimeRef.current = Date.now();
-        runGameLoop();
-      }, nextEventDelay);
-
-    } catch (error) {
-      console.error("AI Difficulty Adjustment Failed:", error);
-      gameLoopRef.current = setTimeout(runGameLoop, 20000); 
-    }
-  }, [isGameActive, engineStatus, setEngineStatus, setEventIntensity, toast, score]);
+      const eventType = Math.random();
+      if (eventType < 0.4 && engineStatus === 'ok') {
+        setEngineStatus('broken');
+        toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
+      } else if (eventType < 0.7) {
+        setActiveMinigame('navigation');
+        toast({ title: "Alert!", description: "Navigation challenge incoming!" });
+      } else {
+          setActiveMinigame('defense');
+          toast({ title: "INCOMING!", description: "Asteroid field detected!" });
+      }
+      lastEventTimeRef.current = Date.now();
+    }, delay);
+  }, [isGameActive, engineStatus, toast, setEngineStatus]);
 
   useEffect(() => {
     if (isGameActive) {
       lastEventTimeRef.current = Date.now();
-      runGameLoop();
+      // Initial event scheduling
+      scheduleNextEvent(15000); 
 
       gameTimerRef.current = setInterval(() => {
         setGameTime(t => {
@@ -162,17 +145,17 @@ export default function GameUI() {
                 setGameState('game-over');
                 setGameWon(true);
                 if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-                if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
+                if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
             }
             return newTime;
         });
       }, 1000);
     }
     return () => {
-      if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+      if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     };
-  }, [isGameActive, runGameLoop]);
+  }, [isGameActive, scheduleNextEvent]);
 
   const handleStartGame = () => {
     resetGame();
@@ -192,14 +175,30 @@ export default function GameUI() {
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
 
-  const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
+  const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
     if (success) {
       const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
-      setScore(s => s + points * Math.floor(eventIntensity / 2));
-      toast({ title: "Success!", description: `+${points * Math.floor(eventIntensity / 2)} points!`, className: "border-green-500" });
+      setScore(s => s + points);
+      toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
+      
       playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
+
+      try {
+        const difficulty = await adjustDifficulty({
+          playerSkillLevel: playerSkillRef.current,
+          timeSinceLastEvent: (Date.now() - lastEventTimeRef.current) / 1000,
+          currentScore: score + points,
+        });
+        setEventIntensity(difficulty.eventIntensity);
+        scheduleNextEvent(difficulty.suggestedDelay * 1000);
+      } catch (error) {
+        console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
+        // Fallback: schedule next event with a default delay
+        scheduleNextEvent(20000);
+      }
+
     } else {
       if (type === 'engine') {
         setGameState('game-over');
@@ -208,6 +207,8 @@ export default function GameUI() {
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
+      // Schedule next event even on failure to keep game going
+      scheduleNextEvent(30000);
     }
   };
 
@@ -363,5 +364,3 @@ export default function GameUI() {
     </motion.div>
   );
 }
-
-    
