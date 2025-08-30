@@ -22,7 +22,7 @@ const HUD_HEIGHT = 80;
 const GAME_AREA_HEIGHT = SHIP_HEIGHT; 
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
-const WIN_TIME_SECONDS = 10 * 60; // 10 minutes to win
+const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
 const EVENT_COOLDOWN_MS = 20000; // 20 second cooldown between events
 
 const ZONES = {
