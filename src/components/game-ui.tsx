@@ -26,7 +26,7 @@ const WIN_TIME_SECONDS = 10 * 60; // 10 minutes to win
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
-  ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 150, name: "Electrical" },
+  ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: 350, name: "Electrical" },
   DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 150, name: "Defense" },
 };
 
