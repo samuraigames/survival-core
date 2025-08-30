@@ -44,16 +44,18 @@ export default function GameUI() {
   const [gameTime, setGameTime] = useState(0);
   const [gameWon, setGameWon] = useState(false);
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
+  const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
 
   const { toast } = useToast();
   
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
-  const asteroidAttackTimerRef = useRef<NodeJS.Timeout>();
+  const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
   const eventCooldownRef = useRef(false);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
+  const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating;
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -67,17 +69,24 @@ export default function GameUI() {
     setTimeout(() => setIsShaking(false), 500);
   }, [setGameState]);
   
+  // Passive damage from unattended crises
   useEffect(() => {
-    if (isUnderAsteroidAttack && isGameActive && activeMinigame !== 'defense') {
-      asteroidAttackTimerRef.current = setInterval(() => {
-        takeHit();
-        toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
+    if (isGameActive && (isUnderAsteroidAttack || isNavCourseDeviating)) {
+      passiveDamageTimerRef.current = setInterval(() => {
+        if (isUnderAsteroidAttack && activeMinigame !== 'defense') {
+          takeHit();
+          toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
+        }
+        if(isNavCourseDeviating && activeMinigame !== 'navigation') {
+          takeHit();
+          toast({ title: "Off Course!", description: "Ship integrity failing from course deviation!", variant: "destructive" });
+        }
       }, 5000); 
     }
     return () => {
-      if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
+      if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
     }
-  }, [isUnderAsteroidAttack, isGameActive, takeHit, toast, activeMinigame]);
+  }, [isUnderAsteroidAttack, isNavCourseDeviating, isGameActive, takeHit, toast, activeMinigame]);
 
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
@@ -121,6 +130,11 @@ export default function GameUI() {
                 prompt: isUnderAsteroidAttack ? `Press [E] to ACTIVATE DEFENSES!` : `Press [E] to use ${zone.name}`,
                 zone: 'DEFENSE_CONSOLE'
               };
+          } else if (zoneKey === 'NAV_CONSOLE') {
+              closestZone = {
+                prompt: isNavCourseDeviating ? 'Press [E] to CORRECT COURSE!' : `Press [E] to use ${zone.name}`,
+                zone: 'NAV_CONSOLE'
+              };
           } else {
                closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
           }
@@ -132,18 +146,18 @@ export default function GameUI() {
         setInteraction(closestZone);
     }
 
-  }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame, isUnderAsteroidAttack]);
+  }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating]);
 
   const triggerRandomEvent = useCallback(() => {
-    if (!isGameActive || eventCooldownRef.current) return;
+    if (!isGameActive || eventCooldownRef.current || isCrisisActive) return;
 
     const eventType = Math.random();
     if (eventType < 0.4 && engineStatus === 'ok') {
       setEngineStatus('broken');
       toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
     } else if (eventType < 0.7) {
-      setActiveMinigame('navigation');
-      toast({ title: "Alert!", description: "Navigation challenge incoming!" });
+      setIsNavCourseDeviating(true);
+      toast({ title: "Alert!", description: "Course deviation detected! Get to the navigation console!", variant: "destructive" });
     } else {
       setIsUnderAsteroidAttack(true);
       toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
@@ -155,20 +169,22 @@ export default function GameUI() {
       eventCooldownRef.current = false;
     }, EVENT_COOLDOWN_MS);
 
-  }, [isGameActive, engineStatus, toast, setEngineStatus]);
+  }, [isGameActive, engineStatus, toast, setEngineStatus, isCrisisActive]);
 
   // Main Event Scheduling Loop
   useEffect(() => {
-    if (isGameActive) {
+    if (isGameActive && !isCrisisActive) {
       // initial event
       if (!nextEventTimeoutRef.current) {
          nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 15000);
       }
+    } else {
+      if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     }
     return () => {
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     }
-  }, [isGameActive, triggerRandomEvent]);
+  }, [isGameActive, triggerRandomEvent, isCrisisActive]);
 
 
   useEffect(() => {
@@ -203,6 +219,7 @@ export default function GameUI() {
     setGameWon(false);
     setIsPaused(false);
     setIsUnderAsteroidAttack(false);
+    setIsNavCourseDeviating(false);
     eventCooldownRef.current = false;
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 15000); 
@@ -213,7 +230,7 @@ export default function GameUI() {
   }
   
   if (gameState === 'game-over') {
-    if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
+    if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
@@ -222,8 +239,12 @@ export default function GameUI() {
     setActiveMinigame(null);
     if (type === 'defense') {
       setIsUnderAsteroidAttack(false); 
-      if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
     }
+    if (type === 'navigation') {
+      setIsNavCourseDeviating(false);
+    }
+
+    if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
 
     if (success) {
       const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
@@ -265,7 +286,15 @@ export default function GameUI() {
         transform: 'translateX(-50%)',
     };
   };
+  
+  const getAlertMessage = () => {
+    if (engineStatus === 'broken') return 'ELECTRICAL FAILURE';
+    if (isUnderAsteroidAttack) return 'ASTEROID ATTACK';
+    if (isNavCourseDeviating) return 'COURSE DEVIATION';
+    return null;
+  }
 
+  const alertMessage = getAlertMessage();
   const shipIntegrityPercentage = 100 - shipHits * 10;
 
   return (
@@ -297,7 +326,7 @@ export default function GameUI() {
                     Time Left: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
                 </Badge>
                 <AnimatePresence>
-                {(engineStatus === 'broken' || isUnderAsteroidAttack) && (
+                {alertMessage && (
                     <motion.div 
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -306,7 +335,7 @@ export default function GameUI() {
                     >
                     <Badge variant='destructive' className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse">
                         <AlertTriangle className="mr-2 h-4 w-4"/>
-                         {engineStatus === 'broken' ? 'ELECTRICAL FAILURE' : 'ASTEROID ATTACK'}
+                         {alertMessage}
                     </Badge>
                     </motion.div>
                 )}
@@ -363,7 +392,7 @@ export default function GameUI() {
 
           {/* Navigation Console */}
           <div className="absolute flex flex-col items-center" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y, transform: 'translate(-50%, -50%)' }}>
-            <div className="w-24 h-16 bg-slate-700 border-2 border-slate-500 rounded-md p-1">
+            <div className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${isNavCourseDeviating ? 'border-red-500 animate-pulse' : 'border-slate-500'}`}>
               <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center overflow-hidden">
                   {isApproachingVictory ? (
                      <Image src="https://picsum.photos/200/150" data-ai-hint="photo earth" alt="Earth" width={96} height={64} className="object-cover" />
