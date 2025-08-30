@@ -23,7 +23,7 @@ const GAME_AREA_HEIGHT = SHIP_HEIGHT;
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
-const EVENT_COOLDOWN_MS = 7000; // 7 second cooldown between events
+const EVENT_COOLDOWN_MS = 4000; // 4 second cooldown between events
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
@@ -176,7 +176,7 @@ export default function GameUI() {
     if (isGameActive && !isCrisisActive) {
       // initial event
       if (!nextEventTimeoutRef.current) {
-         nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 8000);
+         nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 5000);
       }
     } else {
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
@@ -223,7 +223,7 @@ export default function GameUI() {
     setIsNavCourseDeviating(false);
     eventCooldownRef.current = false;
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 8000); 
+    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 5000); 
   };
   
   if (gameState === 'start') {
