@@ -110,9 +110,10 @@ export default function GameUI() {
 
     } catch (error) {
       console.error("AI Difficulty Adjustment Failed:", error);
-      gameLoopRef.current = setTimeout(runGameLoop, 20000); // Fallback timer
+      // Fallback timer if AI fails, to prevent the game from stopping.
+      gameLoopRef.current = setTimeout(runGameLoop, 20000); 
     }
-  }, [score, setEngineStatus, setEventIntensity, toast, isGameActive, engineStatus]);
+  }, [isGameActive, score, engineStatus, setEngineStatus, setEventIntensity, toast]);
 
   useEffect(() => {
     if (isGameActive) {
@@ -163,7 +164,9 @@ export default function GameUI() {
         }
       }
       
-      setInteraction(newInteraction);
+      if (newInteraction?.prompt !== interaction?.prompt) {
+        setInteraction(newInteraction);
+      }
     };
 
     const intervalId = setInterval(checkInteractions, 100);
@@ -361,3 +364,5 @@ export default function GameUI() {
     </motion.div>
   );
 }
+
+    
