@@ -191,10 +191,10 @@ export default function GameUI() {
        if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     }
     return () => {
-      if (gameTimer_ref.current) clearInterval(gameTimer_ref.current);
+      if (gameTimerRef.current) clearInterval(gameTimerRef.current);
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
     };
-  }, [gameState, isPaused]);
+  }, [gameState, isPaused, gameWon, setGameState]);
 
   const handleStartGame = () => {
     resetGame();
