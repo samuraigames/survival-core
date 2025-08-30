@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, useAnimate } from 'framer-motion';
 
 interface PlayerProps {
@@ -39,7 +39,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
     const gameLoop = () => {
       if (!isMovementPaused) {
         let { x, y } = positionRef.current;
-        const speed = 4;
+        const speed = 5; // Increased speed
 
         if (keysPressed.current['w']) y -= speed;
         if (keysPressed.current['s']) y += speed;
@@ -51,10 +51,13 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         const clampedY = Math.max(size / 2, Math.min(y, bounds.height - size / 2));
         
         const newPos = { x: clampedX, y: clampedY };
-        positionRef.current = newPos;
-
-        onPositionChange(newPos);
-        animate(scope.current, { x: newPos.x, y: newPos.y }, { duration: 0.1, ease: 'linear' });
+        
+        // Only update if position has changed to avoid unnecessary re-renders
+        if (newPos.x !== positionRef.current.x || newPos.y !== positionRef.current.y) {
+            positionRef.current = newPos;
+            onPositionChange(newPos);
+            animate(scope.current, { x: newPos.x, y: newPos.y }); // Smoother animation
+        }
       }
 
       gameLoopRef.current = requestAnimationFrame(gameLoop);
