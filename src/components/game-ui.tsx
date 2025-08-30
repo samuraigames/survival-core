@@ -18,7 +18,7 @@ import { Progress } from './ui/progress';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
-const HUD_HEIGHT = 80;
+const HUD_HEIGHT = 100;
 const GAME_AREA_HEIGHT = SHIP_HEIGHT; 
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
@@ -136,7 +136,7 @@ export default function GameUI() {
                 zone: 'NAV_CONSOLE'
               };
           } else {
-               closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
+               closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: key as keyof typeof ZONES };
           }
           break; 
       }
@@ -176,7 +176,7 @@ export default function GameUI() {
     if (isGameActive && !isCrisisActive) {
       // initial event
       if (!nextEventTimeoutRef.current) {
-         nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 5000);
+         nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 8000);
       }
     } else {
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
@@ -301,49 +301,52 @@ export default function GameUI() {
     >
       {/* HUD */}
       <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT, width: SHIP_WIDTH}}>
-          <div className="p-2 flex justify-between items-center h-full">
-            <div className='flex items-center gap-4'>
-                <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
-                    {isPaused ? <Play /> : <Pause />}
-                    <span className="sr-only">{isPaused ? 'Resume' : 'Pause'}</span>
-                </Button>
-                <div>
-                  <Badge variant="outline" className="text-lg py-1 px-4 border-accent">Score: {score}</Badge>
-                  <div className="flex items-center gap-2 mt-1">
-                     <Shield className="h-4 w-4 text-cyan-400"/>
-                     <Progress value={shipIntegrityPercentage} className="w-32 h-2"/>
+          <div className="p-2 flex flex-col justify-between h-full">
+            {/* Journey Progress */}
+            <div className="flex items-center gap-2 w-full">
+              <Rocket className="w-6 h-6 text-accent" />
+              <Progress value={journeyProgressPercentage} className="w-full h-3" />
+              <Globe className="w-6 h-6 text-green-400" />
+            </div>
+
+            <div className="flex justify-between items-center">
+              <div className='flex items-center gap-4'>
+                  <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
+                      {isPaused ? <Play /> : <Pause />}
+                      <span className="sr-only">{isPaused ? 'Resume' : 'Pause'}</span>
+                  </Button>
+                  <div>
+                    <Badge variant="outline" className="text-lg py-1 px-4 border-accent">Score: {score}</Badge>
+                    <div className="flex items-center gap-2 mt-1">
+                       <Shield className="h-4 w-4 text-cyan-400"/>
+                       <Progress value={shipIntegrityPercentage} className="w-32 h-2"/>
+                    </div>
                   </div>
-                </div>
-            </div>
+              </div>
 
-            <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-2 w-full max-w-xs">
-                  <Rocket className="w-5 h-5 text-accent" />
-                  <Progress value={journeyProgressPercentage} className="w-full h-2" />
-                  <Globe className="w-5 h-5 text-green-400" />
+              <div className="flex flex-col items-center gap-1">
+                  <AnimatePresence>
+                  {alertMessage && (
+                      <motion.div 
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                      >
+                      <Badge variant='destructive' className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse">
+                          <AlertTriangle className="mr-2 h-4 w-4"/>
+                           {alertMessage}
+                      </Badge>
+                      </motion.div>
+                  )}
+                  </AnimatePresence>
+              </div>
+              
+              <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
+                <Gamepad2 className="w-5 h-5 text-accent"/>
+                <div>
+                  <p>Move: <span className="font-bold text-foreground">W, A, S, D</span></p>
+                  <p>Interact: <span className="font-bold text-foreground">E</span></p>
                 </div>
-
-                <AnimatePresence>
-                {alertMessage && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                    >
-                    <Badge variant='destructive' className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse">
-                        <AlertTriangle className="mr-2 h-4 w-4"/>
-                         {alertMessage}
-                    </Badge>
-                    </motion.div>
-                )}
-                </AnimatePresence>
-            </div>
-            
-            <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
-              <Gamepad2 className="w-5 h-5 text-accent"/>
-              <div>
-                <p>Move: <span className="font-bold text-foreground">W, A, S, D</span></p>
-                <p>Interact: <span className="font-bold text-foreground">E</span></p>
               </div>
             </div>
           </div>
