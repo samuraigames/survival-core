@@ -69,7 +69,7 @@ export default function GameUI() {
   
   // New Asteroid Attack Logic
   useEffect(() => {
-    if (isUnderAsteroidAttack && isGameActive) {
+    if (isUnderAsteroidAttack && isGameActive && activeMinigame !== 'defense') {
       asteroidAttackTimerRef.current = setInterval(() => {
         takeHit();
         toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
@@ -78,7 +78,7 @@ export default function GameUI() {
     return () => {
       if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
     }
-  }, [isUnderAsteroidAttack, isGameActive, takeHit, toast]);
+  }, [isUnderAsteroidAttack, isGameActive, takeHit, toast, activeMinigame]);
 
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
@@ -419,5 +419,3 @@ export default function GameUI() {
     </motion.div>
   );
 }
-
-    

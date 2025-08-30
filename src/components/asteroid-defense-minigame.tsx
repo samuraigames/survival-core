@@ -120,7 +120,14 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     setAsteroids(prev =>
       prev.map(a => ({ ...a, y: a.y + a.speed })).filter(a => {
         if (a.y > GAME_HEIGHT) {
-          setHits(h => h + 1);
+          setHits(h => {
+            const newHits = h + 1;
+            if (newHits >= 5) {
+              setGameOver(true);
+              setTimeout(() => onClose(false), 1500);
+            }
+            return newHits;
+          });
           return false;
         }
         return true;
@@ -171,16 +178,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, asteroids, score, win]);
-
-  // Game over check
-  useEffect(() => {
-    if (hits >= 5 && !gameOver) {
-      setGameOver(true);
-      setTimeout(() => onClose(false), 1500);
-    }
-  }, [hits, onClose, gameOver]);
-
+  }, [gameOver, asteroids, score, win, onClose]);
   
   // Keyboard input handler
   useEffect(() => {
