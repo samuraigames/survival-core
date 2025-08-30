@@ -160,12 +160,9 @@ export default function GameUI() {
         }
       }
       
-      if (newInteraction?.zone !== interaction?.zone) {
-        setInteraction(newInteraction);
-      }
+      setInteraction(newInteraction);
     };
 
-    // Run on an interval to avoid running on every frame
     const intervalId = setInterval(checkInteractions, 100);
 
     return () => clearInterval(intervalId);
