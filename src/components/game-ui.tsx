@@ -113,7 +113,7 @@ export default function GameUI() {
       // Fallback timer if AI fails, to prevent the game from stopping.
       gameLoopRef.current = setTimeout(runGameLoop, 20000); 
     }
-  }, [isGameActive, score, engineStatus, setEngineStatus, setEventIntensity, toast]);
+  }, [isGameActive, engineStatus, setEngineStatus, setEventIntensity, toast, score]);
 
   useEffect(() => {
     if (isGameActive) {
