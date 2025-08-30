@@ -136,37 +136,34 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     
     // Move Bullets & Check Collisions
     setBullets(prevBullets => {
-        let currentAsteroids = [...asteroids];
-        const remainingBullets: typeof bullets = [];
-        let newScore = score;
-        const destroyedAsteroidIds = new Set();
+      const newAsteroids = [...asteroids];
+      let newScore = score;
+      const destroyedAsteroidIds = new Set();
+      
+      const remainingBullets = prevBullets.filter(bullet => {
+        let bulletDestroyed = false;
+        for (const asteroid of newAsteroids) {
+            if (destroyedAsteroidIds.has(asteroid.id)) continue;
 
-        for (const bullet of prevBullets) {
-            let bulletDestroyed = false;
-            for (const asteroid of currentAsteroids) {
-                if (destroyedAsteroidIds.has(asteroid.id)) continue;
-                
-                const distance = Math.hypot(bullet.x - asteroid.x - 10, bullet.y - asteroid.y - 10);
-                if (distance < 15) { // Collision radius (bullet vs asteroid center)
-                    destroyedAsteroidIds.add(asteroid.id);
-                    bulletDestroyed = true;
-                    newScore += 1;
-                    break; 
-                }
-            }
-
-            if (!bulletDestroyed && bullet.y > -20) {
-                remainingBullets.push({ ...bullet, y: bullet.y - 8 });
+            const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
+            if (distance < 15) { // Collision radius
+                destroyedAsteroidIds.add(asteroid.id);
+                bulletDestroyed = true;
+                newScore += 1;
+                break;
             }
         }
-        
-        if (destroyedAsteroidIds.size > 0) {
-            setAsteroids(prev => prev.filter(a => !destroyedAsteroidIds.has(a.id)));
-        }
+        return !bulletDestroyed && bullet.y > -20;
+      });
+      
+      if (destroyedAsteroidIds.size > 0) {
+        setAsteroids(prev => prev.filter(a => !destroyedAsteroidIds.has(a.id)));
         setScore(newScore);
+      }
 
-        return remainingBullets;
+      return remainingBullets.map(b => ({ ...b, y: b.y - 8 }));
     });
+
 
     // Move Ship
     setShipX(prevX => {
