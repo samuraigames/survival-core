@@ -186,29 +186,30 @@ export default function GameUI() {
     }
   }, [isGameActive, triggerRandomEvent, isCrisisActive]);
 
-
+  // Game Timer
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused) {
+    if (isGameActive) {
       gameTimerRef.current = setInterval(() => {
-        setGameTime(t => {
-            const newTime = t + 1;
-            if (newTime >= WIN_TIME_SECONDS) {
-                setGameState('game-over');
-                setGameWon(true);
-                if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-                if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-            }
-            return newTime;
-        });
+        setGameTime(t => t + 1);
       }, 1000);
-    } else {
-       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     }
     return () => {
+      if (gameTimerRef.current) {
+        clearInterval(gameTimerRef.current);
+      }
+    };
+  }, [isGameActive]);
+
+  // Win Condition Check
+  useEffect(() => {
+    if (gameTime >= WIN_TIME_SECONDS && gameState === 'playing') {
+      setGameState('game-over');
+      setGameWon(true);
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
       if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    };
-  }, [gameState, isPaused, gameWon, setGameState]);
+    }
+  }, [gameTime, gameState, setGameState]);
+
 
   const handleStartGame = () => {
     resetGame();
