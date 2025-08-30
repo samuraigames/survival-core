@@ -186,7 +186,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
         </DialogHeader>
         <div className="relative w-full h-96">
           <Progress value={(timeLeft/60) * 100} className="mb-2 h-2" />
-          <svg ref={svgRef} className="w-full h-80" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+          <svg ref={svgRef} className="w-full h-80" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
             {wirePuzzle && wirePuzzle.starts.map((_,i) => <Node key={`start-${i}`} index={i} side="left" puzzle={wirePuzzle} />)}
             {wirePuzzle && wirePuzzle.ends.map((_, i) => <Node key={`end-${i}`} index={i} side="right" puzzle={wirePuzzle} />)}
 

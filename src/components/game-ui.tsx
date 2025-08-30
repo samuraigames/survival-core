@@ -10,7 +10,7 @@ import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Gamepad2, Wrench, Shield, Clock, Pause, Play, AlertTriangle } from 'lucide-react';
+import { Gamepad2, Shield, Clock, Pause, Play, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -55,7 +55,7 @@ export default function GameUI() {
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
-  const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating;
+  const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || engineStatus === 'broken';
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -233,6 +233,7 @@ export default function GameUI() {
   if (gameState === 'game-over') {
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+    if(gameTimerRef.current) clearInterval(gameTimerRef.current)
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
   
