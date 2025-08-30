@@ -19,13 +19,13 @@ const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 80;
 const GAME_AREA_HEIGHT = SHIP_HEIGHT - HUD_HEIGHT;
 const PLAYER_SIZE = 40;
-const INTERACTION_DISTANCE = 70; // Increased hitbox size
+const INTERACTION_DISTANCE = 70; 
 const WIN_TIME_SECONDS = 20 * 60; // 20 minutes to win
 
 const ZONES = {
-  NAV_CONSOLE: { x: SHIP_WIDTH / 2 - 150, y: 100, name: "Navigation" },
+  NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 100, name: "Navigation" },
   ENGINE_ROOM: { x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT - 80, name: "Engine" },
-  DEFENSE_CONSOLE: { x: SHIP_WIDTH / 2 + 150, y: 100, name: "Defense" },
+  DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 100, name: "Defense" },
 };
 
 type ZoneName = keyof typeof ZONES | null;
@@ -137,7 +137,7 @@ export default function GameUI() {
 
   useEffect(() => {
     const checkInteractions = () => {
-      if (gameState !== 'playing') {
+      if (gameState !== 'playing' || activeMinigame) {
         if (interaction) setInteraction(null);
         return;
       }
@@ -167,7 +167,7 @@ export default function GameUI() {
 
     return () => clearInterval(intervalId);
 
-  }, [playerPosition, engineStatus, gameState, interaction]);
+  }, [playerPosition, engineStatus, gameState, activeMinigame]);
 
   const handleStartGame = () => {
     resetGame();
@@ -200,7 +200,7 @@ export default function GameUI() {
       } else if(type === 'defense' || type === 'navigation') {
         takeHit();
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
-        toast({ title: "Failed!", description: "System integrity reduced.", variant: 'destructive'});
+        toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
     }
   };
@@ -216,7 +216,7 @@ export default function GameUI() {
     const zone = ZONES[interaction.zone];
     return {
         left: zone.x,
-        top: zone.y + 50, // Position it below the station
+        top: zone.y + 40,
         transform: 'translateX(-50%)',
     };
   };
@@ -264,7 +264,7 @@ export default function GameUI() {
         {/* Game Area */}
         <div className="relative w-full bg-grid-pattern bg-repeat" style={{ height: GAME_AREA_HEIGHT }}>
           <AnimatePresence>
-          {interaction && !activeMinigame && (
+          {interaction && (
             <motion.div
               style={getPromptPosition()}
               initial={{ opacity: 0, y: 10 }}
@@ -311,7 +311,7 @@ export default function GameUI() {
           </div>
 
           <Player
-            position={playerPosition}
+            initialPosition={{ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 }}
             onPositionChange={setPlayerPosition}
             size={PLAYER_SIZE}
             bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
