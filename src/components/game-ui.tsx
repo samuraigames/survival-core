@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Player from './player';
 import { useGame } from '@/hooks/use-game';
-import { adjustDifficulty } from '@/ai/flows/adjust-difficulty';
 import { useToast } from "@/hooks/use-toast";
 import EngineRepairMinigame from './engine-repair-minigame';
 import NavigationMinigame from './navigation-minigame';
@@ -48,7 +47,6 @@ export default function GameUI() {
 
   const { toast } = useToast();
   
-  const playerSkillRef = useRef(1);
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
   const asteroidAttackTimerRef = useRef<NodeJS.Timeout>();
@@ -233,19 +231,7 @@ export default function GameUI() {
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
       if (type === 'engine') setEngineStatus('ok');
       
-      playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
-      
-      try {
-        const difficulty = await adjustDifficulty({
-          playerSkillLevel: playerSkillRef.current,
-          timeSinceLastEvent: 0, 
-          currentScore: score + points,
-        });
-        setEventIntensity(difficulty.eventIntensity);
-      } catch (error) {
-        console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
-        setEventIntensity(e => Math.min(10, e + 1)); // Fallback: slightly increase intensity
-      }
+      setEventIntensity(e => Math.min(10, e + 0.5)); // Simple difficulty increase
 
     } else {
       if (type === 'engine') {
@@ -253,7 +239,7 @@ export default function GameUI() {
         return;
       } else if(type === 'defense' || type === 'navigation') {
         takeHit();
-        playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
+        setEventIntensity(e => Math.max(1, e - 1)); // Decrease difficulty on failure
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
     }
