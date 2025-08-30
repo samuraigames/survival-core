@@ -69,7 +69,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     });
 
     // Update progress
-    const progressSpeed = 0.5 + (difficulty / 20); // Faster progress with difficulty
+    const progressSpeed = 0.8 + (difficulty / 20); // Faster progress with difficulty
     setProgress(p => {
         const newProgress = p + progressSpeed;
         if (newProgress >= PATH_LENGTH) {
