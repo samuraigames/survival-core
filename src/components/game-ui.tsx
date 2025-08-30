@@ -11,15 +11,16 @@ import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import { Badge } from './ui/badge';
-import { Gamepad2, Wrench, Shield, Clock, Pause, Play } from 'lucide-react';
+import { Gamepad2, Wrench, Shield, Clock, Pause, Play, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
+import { Progress } from './ui/progress';
 
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 80;
-const GAME_AREA_HEIGHT = SHIP_HEIGHT; // Game area now takes full height
+const GAME_AREA_HEIGHT = SHIP_HEIGHT; 
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 10 * 60; // 10 minutes to win
@@ -42,14 +43,43 @@ export default function GameUI() {
   const [isShaking, setIsShaking] = useState(false);
   const [gameTime, setGameTime] = useState(0);
   const [gameWon, setGameWon] = useState(false);
+  const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
+
   const { toast } = useToast();
   
   const playerSkillRef = useRef(1);
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
+  const asteroidAttackTimerRef = useRef<NodeJS.Timeout>();
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
+
+  const takeHit = useCallback(() => {
+    setIsShaking(true);
+    setShipHits(h => {
+        const newHits = h + 1;
+        if (newHits >= 10) {
+            setGameState('game-over');
+        }
+        return newHits;
+    });
+    setTimeout(() => setIsShaking(false), 500);
+  }, [setGameState]);
+  
+  // New Asteroid Attack Logic
+  useEffect(() => {
+    if (isUnderAsteroidAttack && isGameActive) {
+      asteroidAttackTimerRef.current = setInterval(() => {
+        takeHit();
+        toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
+      }, 5000); // Ship takes a hit every 5 seconds
+    }
+    return () => {
+      if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
+    }
+  }, [isUnderAsteroidAttack, isGameActive, takeHit, toast]);
+
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
     if (!isGameActive || !interaction || activeMinigame) return;
@@ -87,6 +117,11 @@ export default function GameUI() {
                   prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
                   zone: 'ELECTRICAL_PANEL'
               };
+          } else if (zoneKey === 'DEFENSE_CONSOLE') {
+              closestZone = {
+                prompt: isUnderAsteroidAttack ? `Press [E] to ACTIVATE DEFENSES!` : `Press [E] to use ${zone.name}`,
+                zone: 'DEFENSE_CONSOLE'
+              };
           } else {
                closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
           }
@@ -98,20 +133,23 @@ export default function GameUI() {
         setInteraction(closestZone);
     }
 
-  }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame]);
+  }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame, isUnderAsteroidAttack]);
 
+  const handleAIDifficultyAdjustment = useCallback(async () => {
+    try {
+      const difficulty = await adjustDifficulty({
+        playerSkillLevel: playerSkillRef.current,
+        timeSinceLastEvent: 0,
+        currentScore: score,
+      });
+      setEventIntensity(difficulty.eventIntensity);
+      scheduleNextEvent(difficulty.suggestedDelay * 1000);
+    } catch (error) {
+      console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
+      scheduleNextEvent(20000); // Fallback delay
+    }
+  }, [score, setEventIntensity]);
 
-  const takeHit = useCallback(() => {
-    setIsShaking(true);
-    setShipHits(h => {
-        const newHits = h + 1;
-        if (newHits >= 10) {
-            setGameState('game-over');
-        }
-        return newHits;
-    });
-    setTimeout(() => setIsShaking(false), 500);
-  }, [setGameState]);
 
   const scheduleNextEvent = useCallback((delay: number) => {
     if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
@@ -127,32 +165,14 @@ export default function GameUI() {
         setActiveMinigame('navigation');
         toast({ title: "Alert!", description: "Navigation challenge incoming!" });
       } else {
-          setActiveMinigame('defense');
-          toast({ title: "INCOMING!", description: "Asteroid field detected!" });
+        setIsUnderAsteroidAttack(true);
+        toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
       }
     }, delay);
   }, [isGameActive, engineStatus, toast, setEngineStatus]);
 
-  const handleAIDifficultyAdjustment = useCallback(async () => {
-    try {
-      const difficulty = await adjustDifficulty({
-        playerSkillLevel: playerSkillRef.current,
-        timeSinceLastEvent: 0, // This is now less critical, can be simplified
-        currentScore: score,
-      });
-      setEventIntensity(difficulty.eventIntensity);
-      // Schedule the next event with a new delay from AI
-      scheduleNextEvent(difficulty.suggestedDelay * 1000);
-    } catch (error) {
-      console.error("AI Difficulty Adjustment Failed. Using fallback.", error);
-      // Fallback: schedule next event with a static delay
-      scheduleNextEvent(20000);
-    }
-  }, [score, setEventIntensity, scheduleNextEvent]);
-
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
-      // Initial event scheduling
       scheduleNextEvent(15000); 
 
       gameTimerRef.current = setInterval(() => {
@@ -184,6 +204,7 @@ export default function GameUI() {
     setGameTime(0);
     setGameWon(false);
     setIsPaused(false);
+    setIsUnderAsteroidAttack(false);
   };
   
   if (gameState === 'start') {
@@ -191,11 +212,17 @@ export default function GameUI() {
   }
   
   if (gameState === 'game-over') {
+    if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
   
   const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
+    if (type === 'defense') {
+      setIsUnderAsteroidAttack(false); // The attack is over regardless of outcome.
+      if (asteroidAttackTimerRef.current) clearInterval(asteroidAttackTimerRef.current);
+    }
+
     if (success) {
       const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
       const newScore = score + points;
@@ -204,7 +231,6 @@ export default function GameUI() {
       if (type === 'engine') setEngineStatus('ok');
       
       playerSkillRef.current = Math.min(10, playerSkillRef.current + 0.5);
-
       handleAIDifficultyAdjustment();
 
     } else {
@@ -215,7 +241,6 @@ export default function GameUI() {
         playerSkillRef.current = Math.max(1, playerSkillRef.current - 1);
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
-      // Schedule next event even on failure, but with a penalty delay
       scheduleNextEvent(30000);
     }
   };
@@ -237,6 +262,8 @@ export default function GameUI() {
     };
   };
 
+  const shipIntegrityPercentage = 100 - shipHits * 10;
+
   return (
     <motion.div 
       className="w-full h-full flex flex-col items-center justify-center font-body text-foreground bg-black"
@@ -245,28 +272,43 @@ export default function GameUI() {
     >
       {/* HUD */}
       <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT, width: SHIP_WIDTH}}>
-          <div className="p-4 flex justify-between items-center h-full">
+          <div className="p-2 flex justify-between items-center h-full">
             <div className='flex items-center gap-4'>
-              <Badge variant="outline" className="text-lg py-2 px-4 border-accent">Score: {score}</Badge>
-               <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
-                {isPaused ? <Play /> : <Pause />}
-                <span className="sr-only">{isPaused ? 'Resume' : 'Pause'}</span>
-              </Button>
+                <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
+                    {isPaused ? <Play /> : <Pause />}
+                    <span className="sr-only">{isPaused ? 'Resume' : 'Pause'}</span>
+                </Button>
+                <div>
+                  <Badge variant="outline" className="text-lg py-1 px-4 border-accent">Score: {score}</Badge>
+                  <div className="flex items-center gap-2 mt-1">
+                     <Shield className="h-4 w-4 text-cyan-400"/>
+                     <Progress value={shipIntegrityPercentage} className="w-32 h-2"/>
+                  </div>
+                </div>
             </div>
-            <div className="flex items-center gap-4">
-               <Badge variant="secondary" className="text-md py-2 px-4">
-                <Shield className="mr-2 h-4 w-4 text-cyan-400"/>
-                Ship Integrity: <span className="font-bold ml-1">{100 - shipHits * 10}%</span>
-              </Badge>
-              <Badge variant={engineStatus === 'ok' ? 'secondary' : 'destructive'} className="text-md py-2 px-4 transition-colors duration-500">
-                <Wrench className="mr-2 h-4 w-4"/>
-                Electrical: <span className="font-bold ml-1">{engineStatus.toUpperCase()}</span>
-              </Badge>
-               <Badge variant="secondary" className="text-md py-2 px-4">
-                <Clock className="mr-2 h-4 w-4"/>
-                Time Left: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
-              </Badge>
+
+            <div className="flex flex-col items-center">
+                <Badge variant="secondary" className="text-md py-2 px-4">
+                    <Clock className="mr-2 h-4 w-4"/>
+                    Time Left: <span className="font-bold ml-1">{formatTime(gameTime)}</span>
+                </Badge>
+                <AnimatePresence>
+                {(engineStatus === 'broken' || isUnderAsteroidAttack) && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="mt-1"
+                    >
+                    <Badge variant='destructive' className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse">
+                        <AlertTriangle className="mr-2 h-4 w-4"/>
+                         {engineStatus === 'broken' ? 'ELECTRICAL FAILURE' : 'ASTEROID ATTACK'}
+                    </Badge>
+                    </motion.div>
+                )}
+                </AnimatePresence>
             </div>
+            
             <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
               <Gamepad2 className="w-5 h-5 text-accent"/>
               <div>
@@ -331,9 +373,9 @@ export default function GameUI() {
           
           {/* Defense Console */}
           <div className="absolute flex flex-col items-center" style={{ left: ZONES.DEFENSE_CONSOLE.x, top: ZONES.DEFENSE_CONSOLE.y, transform: 'translate(-50%, -50%)'}}>
-            <div className="w-24 h-16 bg-slate-700 border-2 border-slate-500 rounded-md p-1">
+            <div className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${isUnderAsteroidAttack ? 'border-red-500 animate-pulse' : 'border-slate-500'}`}>
               <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
-                  <div className="w-16 h-8 bg-red-500/20 rounded-sm border border-red-500 animate-pulse"></div>
+                  <div className={`w-16 h-8 rounded-sm border transition-colors ${isUnderAsteroidAttack ? 'bg-red-500/20 border-red-500' : 'bg-green-500/20 border-green-500'}`}></div>
               </div>
             </div>
             <span className="text-xs mt-1 text-muted-foreground">{ZONES.DEFENSE_CONSOLE.name}</span>
@@ -377,3 +419,5 @@ export default function GameUI() {
     </motion.div>
   );
 }
+
+    
