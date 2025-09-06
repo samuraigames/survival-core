@@ -23,7 +23,7 @@ const GAME_AREA_HEIGHT = SHIP_HEIGHT;
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
-const EVENT_COOLDOWN_MS = 4000; // 4 second cooldown between events
+const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
@@ -49,9 +49,8 @@ export default function GameUI() {
   const { toast } = useToast();
   
   const gameTimerRef = useRef<NodeJS.Timeout>();
-  const nextEventTimeoutRef = useRef<NodeJS.Timeout>();
+  const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
-  const eventCooldownRef = useRef(false);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
@@ -149,7 +148,7 @@ export default function GameUI() {
   }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating]);
 
   const triggerRandomEvent = useCallback(() => {
-    if (!isGameActive || eventCooldownRef.current || isCrisisActive) return;
+    if (!isGameActive || isCrisisActive) return;
 
     const eventType = Math.random();
     if (eventType < 0.4 && engineStatus === 'ok') {
@@ -162,29 +161,25 @@ export default function GameUI() {
       setIsUnderAsteroidAttack(true);
       toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
     }
-
-    // Start cooldown
-    eventCooldownRef.current = true;
-    setTimeout(() => {
-      eventCooldownRef.current = false;
-    }, EVENT_COOLDOWN_MS);
-
   }, [isGameActive, engineStatus, toast, setEngineStatus, isCrisisActive]);
 
   // Main Event Scheduling Loop
   useEffect(() => {
-    if (isGameActive && !isCrisisActive) {
-      // initial event
-      if (!nextEventTimeoutRef.current) {
-         nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 5000);
-      }
+    if (isGameActive) {
+      // Clear any existing timer
+      if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
+      
+      // Set up a recurring timer
+      eventIntervalRef.current = setInterval(triggerRandomEvent, EVENT_INTERVAL_MS);
     } else {
-      if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+      if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     }
+    
     return () => {
-      if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    }
-  }, [isGameActive, triggerRandomEvent, isCrisisActive]);
+      if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
+    };
+  }, [isGameActive, triggerRandomEvent]);
+
 
   // Game Timer
   useEffect(() => {
@@ -206,7 +201,7 @@ export default function GameUI() {
       setGameState('game-over');
       setGameWon(true);
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-      if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+      if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     }
   }, [gameTime, gameState, setGameState]);
 
@@ -221,9 +216,11 @@ export default function GameUI() {
     setIsPaused(false);
     setIsUnderAsteroidAttack(false);
     setIsNavCourseDeviating(false);
-    eventCooldownRef.current = false;
-    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, 5000); 
+    
+    if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
+    // Initial event after a short delay
+    setTimeout(triggerRandomEvent, 5000); 
+    eventIntervalRef.current = setInterval(triggerRandomEvent, EVENT_INTERVAL_MS);
   };
   
   if (gameState === 'start') {
@@ -232,7 +229,7 @@ export default function GameUI() {
   
   if (gameState === 'game-over') {
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
-    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
+    if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     if(gameTimerRef.current) clearInterval(gameTimerRef.current)
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
@@ -263,10 +260,6 @@ export default function GameUI() {
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
       }
     }
-    
-    // Schedule the next event after the cooldown
-    if (nextEventTimeoutRef.current) clearTimeout(nextEventTimeoutRef.current);
-    nextEventTimeoutRef.current = setTimeout(triggerRandomEvent, EVENT_COOLDOWN_MS);
   };
 
   const getPromptPosition = () => {
