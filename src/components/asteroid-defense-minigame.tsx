@@ -77,6 +77,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   }, []);
 
   const spawnAsteroid = useCallback(() => {
+    if (gameOver || win) return;
     const speed = 1 + (difficulty / 10) * 2;
     setAsteroids(prev => [
       ...prev,
@@ -87,7 +88,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
         speed: speed + Math.random() * 0.5,
       },
     ]);
-  }, [difficulty]);
+  }, [difficulty, gameOver, win]);
   
   // Game setup effect
   useEffect(() => {
@@ -97,8 +98,8 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
       
       const gameDuration = 30000; // 30 seconds
       const winTimeout = setTimeout(() => {
-        setWin(true);
         if (!gameOver) {
+          setWin(true);
           setTimeout(() => onClose(true), 1500);
         }
       }, gameDuration);
@@ -116,55 +117,6 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   const gameLoop = useCallback(() => {
     if (gameOver || win) return;
 
-    // Move Asteroids
-    setAsteroids(prev =>
-      prev.map(a => ({ ...a, y: a.y + a.speed })).filter(a => {
-        if (a.y > GAME_HEIGHT) {
-          setHits(h => {
-            const newHits = h + 1;
-            if (newHits >= 5) {
-              setGameOver(true);
-              setTimeout(() => onClose(false), 1500);
-            }
-            return newHits;
-          });
-          return false;
-        }
-        return true;
-      })
-    );
-    
-    // Move Bullets & Check Collisions
-    setBullets(prevBullets => {
-      const newAsteroids = [...asteroids];
-      let newScore = score;
-      const destroyedAsteroidIds = new Set();
-      
-      const remainingBullets = prevBullets.filter(bullet => {
-        let bulletDestroyed = false;
-        for (const asteroid of newAsteroids) {
-            if (destroyedAsteroidIds.has(asteroid.id)) continue;
-
-            const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
-            if (distance < 15) { // Collision radius
-                destroyedAsteroidIds.add(asteroid.id);
-                bulletDestroyed = true;
-                newScore += 1;
-                break;
-            }
-        }
-        return !bulletDestroyed && bullet.y > -20;
-      });
-      
-      if (destroyedAsteroidIds.size > 0) {
-        setAsteroids(prev => prev.filter(a => !destroyedAsteroidIds.has(a.id)));
-        setScore(newScore);
-      }
-
-      return remainingBullets.map(b => ({ ...b, y: b.y - 8 }));
-    });
-
-
     // Move Ship
     setShipX(prevX => {
       const speed = 5;
@@ -174,15 +126,65 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
       return Math.max(0, Math.min(newX, GAME_WIDTH - SHIP_WIDTH));
     });
 
+    // Move everything else and check for collisions
+    setAsteroids(prevAsteroids => {
+      const newAsteroids = prevAsteroids.map(a => ({ ...a, y: a.y + a.speed }));
+      
+      setBullets(prevBullets => {
+        let currentBullets = prevBullets.map(b => ({ ...b, y: b.y - 8 }));
+        let currentAsteroids = [...newAsteroids];
+        let newScore = score;
+        const destroyedAsteroidIds = new Set();
+        const destroyedBulletIds = new Set();
+
+        for (const bullet of currentBullets) {
+          for (const asteroid of currentAsteroids) {
+            if (destroyedAsteroidIds.has(asteroid.id)) continue;
+
+            const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
+            if (distance < 15) { // Collision
+              destroyedAsteroidIds.add(asteroid.id);
+              destroyedBulletIds.add(bullet.id);
+              newScore += 1;
+            }
+          }
+        }
+        
+        if (destroyedAsteroidIds.size > 0) {
+          setScore(newScore);
+          currentAsteroids = currentAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
+        }
+        
+        return currentBullets.filter(b => b.y > -20 && !destroyedBulletIds.has(b.id));
+      });
+
+      // Filter asteroids that are off-screen or destroyed
+      return newAsteroids.filter(a => {
+         if (destroyedAsteroidIds.has(a.id)) return false;
+        if (a.y > GAME_HEIGHT) {
+          setHits(h => {
+            const newHits = h + 1;
+            if (newHits >= 5 && !win) { // check win state to prevent race condition
+              setGameOver(true);
+              setTimeout(() => onClose(false), 1500);
+            }
+            return newHits;
+          });
+          return false;
+        }
+        return true;
+      });
+    });
+
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, asteroids, score, win, onClose]);
+  }, [gameOver, win, onClose, score]);
   
   // Keyboard input handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
         if (e.key === ' ' || e.code === 'Space') {
-            if (!gameOver) {
+            if (!gameOver && !win) {
                 setBullets(prev => [...prev, { id: Date.now(), x: shipX + SHIP_WIDTH / 2 - 2, y: GAME_HEIGHT - SHIP_HEIGHT }]);
             }
         } else {
@@ -203,7 +205,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [open, shipX, gameOver]);
+  }, [open, shipX, gameOver, win]);
 
 
   // Start/stop game loop
