@@ -438,6 +438,7 @@ export default function GameUI() {
         open={activeMinigame === 'defense'}
         onClose={(success) => onMinigameClose('defense', success)}
         difficulty={eventIntensity}
+        isUnderAttack={isUnderAsteroidAttack}
        />
     </motion.div>
   );
