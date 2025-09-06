@@ -82,12 +82,14 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
 
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
     if (completed || failed || !wirePuzzle) return;
-    const svgRect = svgRef.current?.getBoundingClientRect();
-    if (!svgRect) return;
     
+    // This is the key fix: Prevent dragging a wire that's already correctly connected.
     if (connections[index] !== -1) {
         return; 
     }
+
+    const svgRect = svgRef.current?.getBoundingClientRect();
+    if (!svgRect) return;
 
     setCurrentDrag({
       from: index,
@@ -120,9 +122,11 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
     let connected = false;
     for (let i = 0; i < numWires; i++) {
         const endCoords = getPointCoords(i, 'right');
+        // Increased hitbox from 20 to 25
         const distance = Math.hypot(mouseX - endCoords.x, mouseY - endCoords.y);
         
-        if (distance < 20) {
+        if (distance < 25) { // HITBOX INCREASED
+            // Prevent connecting to an already used end-point
             if (connections.some(c => c === i)) {
                 break;
             }
@@ -160,6 +164,9 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
     const colorIndex = side === 'left' ? puzzle.starts[index] : puzzle.ends[index];
     const color = colorIndex !== undefined ? WIRE_COLORS[colorIndex] : '#ffffff';
     
+    const isConnected = connections[index] !== -1;
+    const cursorClass = side === 'left' && !isConnected && !completed && !failed ? "cursor-pointer" : "cursor-default";
+
     return (
       <motion.circle
         cx={x}
@@ -168,8 +175,8 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
         fill={color}
         stroke="#ffffff"
         strokeWidth="3"
-        className={side === 'left' ? "cursor-pointer" : ""}
-        whileHover={side === 'left' ? { scale: 1.1 } : {}}
+        className={cursorClass}
+        whileHover={side === 'left' && !isConnected && !completed && !failed ? { scale: 1.1 } : {}}
         onMouseDown={side === 'left' ? (e) => handleMouseDown(e, index) : undefined}
       />
     );

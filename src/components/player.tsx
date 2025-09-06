@@ -82,7 +82,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
   return (
     <motion.div
       ref={scope}
-      className="absolute bg-accent rounded-full border-2 border-accent-foreground z-10"
+      className="absolute flex items-center justify-center rounded-full bg-white z-10"
       initial={{ x: initialPosition.x, y: initialPosition.y }}
       style={{
         width: size,
@@ -92,7 +92,14 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         top: 0,
         left: 0,
       }}
-    />
+    >
+      <div 
+        className="w-4/5 h-2/5 bg-gray-400 rounded-full"
+        style={{
+          boxShadow: 'inset 0 0 5px rgba(0,0,0,0.4)',
+        }}
+      ></div>
+    </motion.div>
   );
 };
 
