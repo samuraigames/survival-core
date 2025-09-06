@@ -25,7 +25,7 @@ const GameOverScreen = ({ score, onRestart, won }: GameOverScreenProps) => {
               MISSION SUCCESS
             </h1>
             <p className="mt-4 text-xl md:text-2xl text-muted-foreground font-body max-w-2xl mx-auto">
-              You survived the void! Your final score: <span className="text-accent font-bold">{score}</span>
+              You survived the void and reached Earth! Your final score: <span className="text-accent font-bold">{score}</span>
             </p>
              <p className="mt-2 text-lg text-muted-foreground font-body max-w-2xl mx-auto">
               You can finally rest.

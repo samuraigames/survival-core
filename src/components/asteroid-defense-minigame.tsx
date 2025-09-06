@@ -15,6 +15,7 @@ const GAME_WIDTH = 500;
 const GAME_HEIGHT = 400;
 const SHIP_WIDTH = 40;
 const SHIP_HEIGHT = 40;
+const ASTEROIDS_TO_WIN = 15;
 
 const Asteroid = ({ x, y }: { x: number, y: number }) => (
   <motion.div
@@ -64,6 +65,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 
   const gameLoopRef = useRef<number>();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
+  const spawnIntervalRef = useRef<NodeJS.Timeout>();
 
   const resetState = useCallback(() => {
     setAsteroids([]);
@@ -94,23 +96,14 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   useEffect(() => {
     if (open) {
       resetState();
-      const spawnInterval = setInterval(spawnAsteroid, Math.max(500, 2000 / (difficulty / 2)));
+      spawnIntervalRef.current = setInterval(spawnAsteroid, Math.max(500, 2000 / (difficulty / 2)));
       
-      const gameDuration = 30000; // 30 seconds
-      const winTimeout = setTimeout(() => {
-        if (!gameOver) {
-          setWin(true);
-          setTimeout(() => onClose(true), 1500);
-        }
-      }, gameDuration);
-
       return () => {
-        clearInterval(spawnInterval);
-        clearTimeout(winTimeout);
+        if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current);
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
       };
     }
-  }, [open, difficulty, spawnAsteroid, onClose, gameOver, resetState]);
+  }, [open, difficulty, spawnAsteroid, resetState]);
 
 
   // Main Game Loop
@@ -126,58 +119,62 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
       return Math.max(0, Math.min(newX, GAME_WIDTH - SHIP_WIDTH));
     });
 
-    // Move everything else and check for collisions
+    let destroyedAsteroidIds = new Set<number>();
+    let destroyedBulletIds = new Set<number>();
+
+    // Move bullets and check for collisions
+    setBullets(prevBullets => {
+        const newBullets = prevBullets.map(b => ({ ...b, y: b.y - 8 }));
+        
+        setAsteroids(prevAsteroids => {
+            for (const bullet of newBullets) {
+                if (destroyedBulletIds.has(bullet.id)) continue;
+                for (const asteroid of prevAsteroids) {
+                    if (destroyedAsteroidIds.has(asteroid.id)) continue;
+
+                    const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
+                    if (distance < 15) { // Collision
+                        destroyedAsteroidIds.add(asteroid.id);
+                        destroyedBulletIds.add(bullet.id);
+                        setScore(s => s + 1);
+                    }
+                }
+            }
+            return prevAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
+        });
+
+        return newBullets.filter(b => b.y > -20 && !destroyedBulletIds.has(b.id));
+    });
+
+    // Move asteroids and check for hits
     setAsteroids(prevAsteroids => {
-      const newAsteroids = prevAsteroids.map(a => ({ ...a, y: a.y + a.speed }));
-      
-      setBullets(prevBullets => {
-        let currentBullets = prevBullets.map(b => ({ ...b, y: b.y - 8 }));
-        let currentAsteroids = [...newAsteroids];
-        let newScore = score;
-        const destroyedAsteroidIds = new Set();
-        const destroyedBulletIds = new Set();
-
-        for (const bullet of currentBullets) {
-          for (const asteroid of currentAsteroids) {
-            if (destroyedAsteroidIds.has(asteroid.id)) continue;
-
-            const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
-            if (distance < 15) { // Collision
-              destroyedAsteroidIds.add(asteroid.id);
-              destroyedBulletIds.add(bullet.id);
-              newScore += 1;
+        return prevAsteroids.map(a => ({ ...a, y: a.y + a.speed })).filter(a => {
+            if (a.y > GAME_HEIGHT) {
+                setHits(h => {
+                    const newHits = h + 1;
+                    if (newHits >= 5 && !win) { 
+                        setGameOver(true);
+                        setTimeout(() => onClose(false), 1500);
+                    }
+                    return newHits;
+                });
+                return false;
             }
-          }
-        }
-        
-        if (destroyedAsteroidIds.size > 0) {
-          setScore(newScore);
-          currentAsteroids = currentAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
-        }
-        
-        return currentBullets.filter(b => b.y > -20 && !destroyedBulletIds.has(b.id));
-      });
-
-      // Filter asteroids that are off-screen or destroyed
-      return newAsteroids.filter(a => {
-         if (destroyedAsteroidIds.has(a.id)) return false;
-        if (a.y > GAME_HEIGHT) {
-          setHits(h => {
-            const newHits = h + 1;
-            if (newHits >= 5 && !win) { // check win state to prevent race condition
-              setGameOver(true);
-              setTimeout(() => onClose(false), 1500);
-            }
-            return newHits;
-          });
-          return false;
-        }
-        return true;
-      });
+            return true;
+        });
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, win, onClose, score]);
+  }, [gameOver, win, onClose]);
+
+  // Check for win condition
+  useEffect(() => {
+    if (score >= ASTEROIDS_TO_WIN && !win && !gameOver) {
+      setWin(true);
+      if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current);
+      setTimeout(() => onClose(true), 1500);
+    }
+  }, [score, win, gameOver, onClose]);
   
   // Keyboard input handler
   useEffect(() => {
@@ -225,7 +222,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
       <DialogContent className="max-w-xl bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Asteroid Defense</DialogTitle>
-          <DialogDescription>Use A/D or Arrow Keys to move. Press SPACE to shoot. Survive for 30 seconds!</DialogDescription>
+          <DialogDescription>Use A/D or Arrow Keys to move. Press SPACE to shoot. Destroy {ASTEROIDS_TO_WIN} asteroids!</DialogDescription>
         </DialogHeader>
         <div className="relative overflow-hidden rounded-md border bg-black" style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}>
           <AnimatePresence>
@@ -250,7 +247,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
           </motion.div>
           
           <div className="absolute top-2 left-2 p-2 bg-background/50 rounded-md text-cyan-400 font-bold">
-            SCORE: {score}
+            DESTROYED: {score} / {ASTEROIDS_TO_WIN}
           </div>
           <div className="absolute top-2 right-2 p-2 bg-background/50 rounded-md text-destructive font-bold">
             HITS: {hits} / 5

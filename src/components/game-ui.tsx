@@ -136,7 +136,7 @@ export default function GameUI() {
                 zone: 'NAV_CONSOLE'
               };
           } else {
-               closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: key as keyof typeof ZONES };
+               closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
           }
           break; 
       }
@@ -239,12 +239,6 @@ export default function GameUI() {
   
   const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
-    if (type === 'defense') {
-      setIsUnderAsteroidAttack(false); 
-    }
-    if (type === 'navigation') {
-      setIsNavCourseDeviating(false);
-    }
 
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
 
@@ -252,7 +246,10 @@ export default function GameUI() {
       const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
       setScore(s => s + points);
       toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
+      
       if (type === 'engine') setEngineStatus('ok');
+      if (type === 'defense') setIsUnderAsteroidAttack(false);
+      if (type === 'navigation') setIsNavCourseDeviating(false);
       
       setEventIntensity(e => Math.min(10, e + 0.5)); // Simple difficulty increase
 
