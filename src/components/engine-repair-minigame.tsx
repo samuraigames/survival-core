@@ -85,9 +85,6 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
     const svgRect = svgRef.current?.getBoundingClientRect();
     if (!svgRect) return;
     
-    // If this wire is already connected, do nothing. To change it, user must start from the beginning.
-    // This simplifies logic and fixes the bug. For a better UX, we could allow changing connections,
-    // but for now, this ensures stability.
     if (connections[index] !== -1) {
         return; 
     }
@@ -125,8 +122,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
         const endCoords = getPointCoords(i, 'right');
         const distance = Math.hypot(mouseX - endCoords.x, mouseY - endCoords.y);
         
-        if (distance < 20) { // 20 is the radius of the node
-            // Check if the end point is already connected to another wire
+        if (distance < 20) {
             if (connections.some(c => c === i)) {
                 break;
             }
@@ -180,7 +176,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose(false)}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if(!isOpen) onClose(completed) }}>
       <DialogContent className="max-w-md bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Electrical Panel Repair</DialogTitle>

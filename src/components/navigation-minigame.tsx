@@ -50,6 +50,8 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
       setPathYOffset(0);
       lastShiftTimeRef.current = Date.now();
       keysPressed.current = {};
+    } else {
+        if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     }
   }, [open, generatePath]);
   
@@ -143,7 +145,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose(gameOver ?? false)}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(gameOver ?? false) }}>
       <DialogContent className="max-w-xl bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Navigation Correction</DialogTitle>

@@ -23,7 +23,7 @@ const GAME_AREA_HEIGHT = SHIP_HEIGHT;
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
-const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
+const EVENT_INTERVAL_MS = 4000; // 4 seconds between events
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
@@ -70,7 +70,6 @@ export default function GameUI() {
   
   // Passive damage from unattended crises
   useEffect(() => {
-    // Clear any existing timer before setting a new one
     if (passiveDamageTimerRef.current) {
         clearInterval(passiveDamageTimerRef.current);
     }
@@ -174,10 +173,7 @@ export default function GameUI() {
   // Main Event Scheduling Loop
   useEffect(() => {
     if (isGameActive) {
-      // Clear any existing timer
       if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
-      
-      // Set up a recurring timer
       eventIntervalRef.current = setInterval(triggerRandomEvent, EVENT_INTERVAL_MS);
     } else {
       if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
@@ -195,6 +191,8 @@ export default function GameUI() {
       gameTimerRef.current = setInterval(() => {
         setGameTime(t => t + 1);
       }, 1000);
+    } else {
+        if(gameTimerRef.current) clearInterval(gameTimerRef.current);
     }
     return () => {
       if (gameTimerRef.current) {
@@ -208,10 +206,17 @@ export default function GameUI() {
     if (gameTime >= WIN_TIME_SECONDS && gameState === 'playing') {
       setGameState('game-over');
       setGameWon(true);
-      if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-      if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     }
   }, [gameTime, gameState, setGameState]);
+
+  // Game Over Cleanup
+  useEffect(() => {
+    if (gameState === 'game-over') {
+        if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
+        if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
+        if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+    }
+  }, [gameState]);
 
 
   const handleStartGame = () => {
@@ -225,10 +230,12 @@ export default function GameUI() {
     setIsUnderAsteroidAttack(false);
     setIsNavCourseDeviating(false);
     
+    // Clear any lingering timers from previous game sessions
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
-    // Initial event after a short delay
+    if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+    if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
+
     setTimeout(triggerRandomEvent, 1000); 
-    eventIntervalRef.current = setInterval(triggerRandomEvent, EVENT_INTERVAL_MS);
   };
   
   if (gameState === 'start') {
@@ -236,16 +243,12 @@ export default function GameUI() {
   }
   
   if (gameState === 'game-over') {
-    if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
-    if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
-    if(gameTimerRef.current) clearInterval(gameTimerRef.current)
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
   
   const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
 
-    // Explicitly clear the passive damage timer when a minigame is closed.
     if (passiveDamageTimerRef.current) {
         clearInterval(passiveDamageTimerRef.current);
     }
@@ -259,7 +262,7 @@ export default function GameUI() {
         if (type === 'defense') setIsUnderAsteroidAttack(false);
         if (type === 'navigation') setIsNavCourseDeviating(false);
 
-        setEventIntensity(e => Math.min(10, e + 0.5)); // Simple difficulty increase
+        setEventIntensity(e => Math.min(10, e + 0.5));
 
     } else {
         if (type === 'engine') {
@@ -267,7 +270,7 @@ export default function GameUI() {
             return;
         } else if (type === 'defense' || type === 'navigation') {
             takeHit();
-            setEventIntensity(e => Math.max(1, e - 1)); // Decrease difficulty on failure
+            setEventIntensity(e => Math.max(1, e - 1));
             toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive' });
         }
     }
