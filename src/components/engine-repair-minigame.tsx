@@ -83,7 +83,7 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
     if (completed || failed || !wirePuzzle) return;
     
-    // This is the key fix: Prevent dragging a wire that's already correctly connected.
+    // Prevent dragging a wire that's already correctly connected.
     if (connections[index] !== -1) {
         return; 
     }
@@ -264,3 +264,5 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
 };
 
 export default EngineRepairMinigame;
+
+    
