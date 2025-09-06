@@ -227,7 +227,7 @@ export default function GameUI() {
     
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     // Initial event after a short delay
-    setTimeout(triggerRandomEvent, 5000); 
+    setTimeout(triggerRandomEvent, 1000); 
     eventIntervalRef.current = setInterval(triggerRandomEvent, EVENT_INTERVAL_MS);
   };
   
