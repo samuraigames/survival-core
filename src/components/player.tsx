@@ -9,9 +9,10 @@ interface PlayerProps {
   size: number;
   bounds: { width: number, height: number };
   isMovementPaused: boolean;
+  joystickVector: { x: number; y: number };
 }
 
-const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size, bounds, isMovementPaused }) => {
+const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size, bounds, isMovementPaused, joystickVector }) => {
   const [scope, animate] = useAnimate();
   const positionRef = useRef(initialPosition);
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -41,11 +42,18 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         let { x, y } = positionRef.current;
         const speed = 5;
 
+        // Keyboard movement
         if (keysPressed.current['w']) y -= speed;
         if (keysPressed.current['s']) y += speed;
         if (keysPressed.current['a']) x -= speed;
         if (keysPressed.current['d']) x += speed;
         
+        // Joystick movement
+        if (joystickVector.x !== 0 || joystickVector.y !== 0) {
+            x += joystickVector.x * speed;
+            y += joystickVector.y * speed;
+        }
+
         // Clamp position to bounds
         const clampedX = Math.max(size / 2, Math.min(x, bounds.width - size / 2));
         const clampedY = Math.max(size / 2, Math.min(y, bounds.height - size / 2));
@@ -55,7 +63,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         if (newPos.x !== positionRef.current.x || newPos.y !== positionRef.current.y) {
             positionRef.current = newPos;
             onPositionChange(newPos);
-            animate(scope.current, { x: newPos.x, y: newPos.y }, { type: "spring", stiffness: 700, damping: 35 });
+            animate(scope.current, { x: newPos.x, y: newPos.y }, { type: "spring", stiffness: 700, damping: 35, duration: 0.1 });
         }
       }
 
@@ -69,7 +77,7 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [isMovementPaused, bounds.width, bounds.height, size, onPositionChange, animate, scope]);
+  }, [isMovementPaused, bounds.width, bounds.height, size, onPositionChange, animate, scope, joystickVector]);
 
   return (
     <motion.div
@@ -89,5 +97,3 @@ const Player: React.FC<PlayerProps> = ({ initialPosition, onPositionChange, size
 };
 
 export default Player;
-
-    

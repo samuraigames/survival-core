@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Player from './player';
 import { useGame } from '@/hooks/use-game';
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from '@/hooks/use-mobile';
 import EngineRepairMinigame from './engine-repair-minigame';
 import NavigationMinigame from './navigation-minigame';
 import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
+import Joystick from './joystick';
 import { Badge } from './ui/badge';
 import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,7 +25,7 @@ const GAME_AREA_HEIGHT = SHIP_HEIGHT;
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
-const EVENT_INTERVAL_MS = 4000; // 4 seconds between events
+const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
@@ -36,6 +38,7 @@ type ZoneName = keyof typeof ZONES | null;
 export default function GameUI() {
   const { gameState, setGameState, score, setScore, engineStatus, setEngineStatus, eventIntensity, setEventIntensity, resetGame } = useGame();
   const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
+  const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | 'defense' | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -45,7 +48,8 @@ export default function GameUI() {
   const [gameWon, setGameWon] = useState(false);
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
-
+  
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   
   const gameTimerRef = useRef<NodeJS.Timeout>();
@@ -68,6 +72,18 @@ export default function GameUI() {
     setTimeout(() => setIsShaking(false), 500);
   }, [setGameState]);
   
+  const triggerInteraction = useCallback(() => {
+    if (!isGameActive || !interaction || activeMinigame) return;
+
+    if (interaction?.zone === 'NAV_CONSOLE') {
+      setActiveMinigame('navigation');
+    } else if (interaction?.zone === 'ELECTRICAL_PANEL' && engineStatus === 'broken') {
+      setActiveMinigame('engine');
+    } else if (interaction?.zone === 'DEFENSE_CONSOLE') {
+      setActiveMinigame('defense');
+    }
+  }, [isGameActive, interaction, engineStatus, activeMinigame]);
+
   // Passive damage from unattended crises
   useEffect(() => {
     if (passiveDamageTimerRef.current) {
@@ -96,17 +112,10 @@ export default function GameUI() {
 
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
-    if (!isGameActive || !interaction || activeMinigame) return;
     if (e.key === 'e' || e.key === 'E') {
-      if (interaction?.zone === 'NAV_CONSOLE') {
-        setActiveMinigame('navigation');
-      } else if (interaction?.zone === 'ELECTRICAL_PANEL' && engineStatus === 'broken') {
-        setActiveMinigame('engine');
-      } else if (interaction?.zone === 'DEFENSE_CONSOLE') {
-        setActiveMinigame('defense');
-      }
+        triggerInteraction();
     }
-  }, [isGameActive, interaction, engineStatus, activeMinigame]);
+  }, [triggerInteraction]);
   
   useEffect(() => {
     window.addEventListener('keydown', handleInteractionKey);
@@ -296,6 +305,7 @@ export default function GameUI() {
   const alertMessage = getAlertMessage();
   const shipIntegrityPercentage = 100 - shipHits * 10;
   const journeyProgressPercentage = (gameTime / WIN_TIME_SECONDS) * 100;
+  const interactionText = interaction?.prompt.replace('Press [E] to ', '');
 
   return (
     <motion.div 
@@ -345,13 +355,15 @@ export default function GameUI() {
                   </AnimatePresence>
               </div>
               
-              <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
-                <Gamepad2 className="w-5 h-5 text-accent"/>
-                <div>
-                  <p>Move: <span className="font-bold text-foreground">W, A, S, D</span></p>
-                  <p>Interact: <span className="font-bold text-foreground">E</span></p>
+              {!isMobile && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
+                  <Gamepad2 className="w-5 h-5 text-accent"/>
+                  <div>
+                    <p>Move: <span className="font-bold text-foreground">W, A, S, D</span></p>
+                    <p>Interact: <span className="font-bold text-foreground">E</span></p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -363,7 +375,7 @@ export default function GameUI() {
         {/* Game Area */}
         <div className="relative w-full h-full bg-grid-pattern bg-repeat">
           <AnimatePresence>
-          {interaction && (
+          {interaction && !isMobile && (
             <motion.div
               style={getPromptPosition()}
               initial={{ opacity: 0, y: 10 }}
@@ -434,8 +446,26 @@ export default function GameUI() {
             size={PLAYER_SIZE}
             bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
             isMovementPaused={!isGameActive || activeMinigame !== null}
+            joystickVector={joystickVector}
           />
         </div>
+        
+        {isMobile && isGameActive && (
+          <div className="absolute bottom-5 left-5 z-20">
+            <Joystick onMove={setJoystickVector} />
+          </div>
+        )}
+
+        {isMobile && isGameActive && interaction && (
+          <div className="absolute bottom-8 right-5 z-20">
+            <Button
+              onClick={triggerInteraction}
+              className="rounded-full w-20 h-20 text-lg bg-accent/80 hover:bg-accent border-2 border-accent-foreground/50 shadow-lg backdrop-blur-sm"
+            >
+              {interactionText}
+            </Button>
+          </div>
+        )}
       </div>
       
       <EngineRepairMinigame
