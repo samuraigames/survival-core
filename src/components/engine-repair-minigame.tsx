@@ -85,10 +85,12 @@ const EngineRepairMinigame: React.FC<EngineRepairMinigameProps> = ({ open, onClo
     const svgRect = svgRef.current?.getBoundingClientRect();
     if (!svgRect) return;
     
-    // Un-set the current connection if user clicks on an already connected start node
-    const newConnections = [...connections];
-    newConnections[index] = -1;
-    setConnections(newConnections);
+    // If this wire is already connected, do nothing. To change it, user must start from the beginning.
+    // This simplifies logic and fixes the bug. For a better UX, we could allow changing connections,
+    // but for now, this ensures stability.
+    if (connections[index] !== -1) {
+        return; 
+    }
 
     setCurrentDrag({
       from: index,
