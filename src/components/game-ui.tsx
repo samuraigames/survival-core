@@ -70,22 +70,30 @@ export default function GameUI() {
   
   // Passive damage from unattended crises
   useEffect(() => {
+    // Clear any existing timer before setting a new one
+    if (passiveDamageTimerRef.current) {
+        clearInterval(passiveDamageTimerRef.current);
+    }
+
     if (isGameActive && (isUnderAsteroidAttack || isNavCourseDeviating)) {
-      passiveDamageTimerRef.current = setInterval(() => {
-        if (isUnderAsteroidAttack && activeMinigame !== 'defense') {
-          takeHit();
-          toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
-        }
-        if(isNavCourseDeviating && activeMinigame !== 'navigation') {
-          takeHit();
-          toast({ title: "Off Course!", description: "Ship integrity failing from course deviation!", variant: "destructive" });
-        }
-      }, 5000); 
+        passiveDamageTimerRef.current = setInterval(() => {
+            if (isUnderAsteroidAttack && activeMinigame !== 'defense') {
+                takeHit();
+                toast({ title: "Ship taking damage!", description: "Defenses are offline!", variant: "destructive" });
+            }
+            if (isNavCourseDeviating && activeMinigame !== 'navigation') {
+                takeHit();
+                toast({ title: "Off Course!", description: "Ship integrity failing from course deviation!", variant: "destructive" });
+            }
+        }, 5000);
     }
+
     return () => {
-      if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
-    }
-  }, [isUnderAsteroidAttack, isNavCourseDeviating, isGameActive, takeHit, toast, activeMinigame]);
+        if (passiveDamageTimerRef.current) {
+            clearInterval(passiveDamageTimerRef.current);
+        }
+    };
+  }, [isGameActive, isUnderAsteroidAttack, isNavCourseDeviating, activeMinigame, takeHit, toast]);
 
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
@@ -234,31 +242,34 @@ export default function GameUI() {
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
   
-  const onMinigameClose = async (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
+  const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
     setActiveMinigame(null);
 
-    if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
+    // Explicitly clear the passive damage timer when a minigame is closed.
+    if (passiveDamageTimerRef.current) {
+        clearInterval(passiveDamageTimerRef.current);
+    }
 
     if (success) {
-      const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
-      setScore(s => s + points);
-      toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
-      
-      if (type === 'engine') setEngineStatus('ok');
-      if (type === 'defense') setIsUnderAsteroidAttack(false);
-      if (type === 'navigation') setIsNavCourseDeviating(false);
-      
-      setEventIntensity(e => Math.min(10, e + 0.5)); // Simple difficulty increase
+        const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
+        setScore(s => s + points);
+        toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
+
+        if (type === 'engine') setEngineStatus('ok');
+        if (type === 'defense') setIsUnderAsteroidAttack(false);
+        if (type === 'navigation') setIsNavCourseDeviating(false);
+
+        setEventIntensity(e => Math.min(10, e + 0.5)); // Simple difficulty increase
 
     } else {
-      if (type === 'engine') {
-        setGameState('game-over');
-        return;
-      } else if(type === 'defense' || type === 'navigation') {
-        takeHit();
-        setEventIntensity(e => Math.max(1, e - 1)); // Decrease difficulty on failure
-        toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive'});
-      }
+        if (type === 'engine') {
+            setGameState('game-over');
+            return;
+        } else if (type === 'defense' || type === 'navigation') {
+            takeHit();
+            setEventIntensity(e => Math.max(1, e - 1)); // Decrease difficulty on failure
+            toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive' });
+        }
     }
   };
 
