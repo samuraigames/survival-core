@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from '@/hooks/use-mobile';
 import NavigationMinigame from './navigation-minigame';
 import AsteroidDefenseMinigame from './asteroid-defense-minigame';
-import LifeSupportMinigame from './life-support-minigame'; // Import the new minigame
+import LifeSupportMinigame from './life-support-minigame';
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import Joystick from './joystick';
@@ -32,7 +32,7 @@ const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
   DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 150, name: "Defense" },
-  LIFE_SUPPORT: { x: SHIP_WIDTH / 2, y: SHIP_HEIGHT - 100, name: "Life Support" }, // New Zone
+  LIFE_SUPPORT: { x: SHIP_WIDTH / 2, y: SHIP_HEIGHT - 100, name: "Life Support" },
 };
 
 type ZoneName = keyof typeof ZONES | null;
@@ -50,7 +50,7 @@ export default function GameUI() {
   const [gameWon, setGameWon] = useState(false);
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
-  const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false); // New crisis state
+  const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false);
   const [scale, setScale] = useState(1);
   
   const isMobile = useIsMobile();
@@ -66,16 +66,29 @@ export default function GameUI() {
     const handleResize = () => {
       const container = gameAreaRef.current;
       if (container) {
-        const { clientWidth, clientHeight } = container.parentElement!;
+        const { clientWidth, clientHeight } = container;
         const scaleX = clientWidth / TOTAL_WIDTH;
         const scaleY = clientHeight / TOTAL_HEIGHT;
         setScale(Math.min(scaleX, scaleY));
       }
     };
     
+    // Call on mount and on resize
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    
+    // Set up a ResizeObserver to handle more complex layout changes
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (gameAreaRef.current) {
+        resizeObserver.observe(gameAreaRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (gameAreaRef.current) {
+          resizeObserver.unobserve(gameAreaRef.current);
+      }
+    };
   }, []);
 
   const isGameActive = gameState === 'playing' && !isPaused;
@@ -332,7 +345,7 @@ export default function GameUI() {
   return (
     <div 
       ref={gameAreaRef}
-      className="w-full h-full flex items-center justify-center"
+      className="w-full h-full flex items-center justify-center p-4 box-border"
     >
       <motion.div 
         className="flex flex-col items-center justify-center font-body text-foreground bg-black"
