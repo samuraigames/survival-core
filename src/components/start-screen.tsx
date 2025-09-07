@@ -18,7 +18,7 @@ const Key = ({ children }: { children: React.ReactNode }) => (
 const StartScreen = ({ onStart }: StartScreenProps) => {
   return (
     <div className="w-full min-h-screen flex flex-col bg-background text-foreground p-4 sm:p-8 overflow-y-auto">
-      <div className="flex flex-col items-center w-full max-w-5xl mx-auto pt-16 pb-8">
+      <div className="flex flex-col items-center justify-center w-full max-w-5xl mx-auto flex-grow">
         <div className="text-center w-full">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -37,7 +37,7 @@ const StartScreen = ({ onStart }: StartScreenProps) => {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.5 }}
-            className="mt-12 mb-16"
+            className="mt-8 mb-12 sm:mt-12 sm:mb-16"
           >
             <Button
               onClick={onStart}
