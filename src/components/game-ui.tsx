@@ -5,14 +5,14 @@ import Player from './player';
 import { useGame } from '@/hooks/use-game';
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from '@/hooks/use-mobile';
-import EngineRepairMinigame from './engine-repair-minigame';
 import NavigationMinigame from './navigation-minigame';
 import AsteroidDefenseMinigame from './asteroid-defense-minigame';
+import LifeSupportMinigame from './life-support-minigame'; // Import the new minigame
 import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import Joystick from './joystick';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -29,18 +29,18 @@ const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
-  ELECTRICAL_PANEL: { x: SHIP_WIDTH / 2, y: 350, name: "Electrical" },
   DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 150, name: "Defense" },
+  LIFE_SUPPORT: { x: SHIP_WIDTH / 2, y: SHIP_HEIGHT - 100, name: "Life Support" }, // New Zone
 };
 
 type ZoneName = keyof typeof ZONES | null;
 
 export default function GameUI() {
-  const { gameState, setGameState, score, setScore, engineStatus, setEngineStatus, eventIntensity, setEventIntensity, resetGame } = useGame();
+  const { gameState, setGameState, score, setScore, eventIntensity, setEventIntensity, resetGame } = useGame();
   const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
-  const [activeMinigame, setActiveMinigame] = useState<'engine' | 'navigation' | 'defense' | null>(null);
+  const [activeMinigame, setActiveMinigame] = useState<'navigation' | 'defense' | 'life-support' | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [shipHits, setShipHits] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
@@ -48,6 +48,7 @@ export default function GameUI() {
   const [gameWon, setGameWon] = useState(false);
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
+  const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false); // New crisis state
   
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -58,7 +59,7 @@ export default function GameUI() {
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
-  const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || engineStatus === 'broken';
+  const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -77,12 +78,12 @@ export default function GameUI() {
 
     if (interaction?.zone === 'NAV_CONSOLE') {
       setActiveMinigame('navigation');
-    } else if (interaction?.zone === 'ELECTRICAL_PANEL' && engineStatus === 'broken') {
-      setActiveMinigame('engine');
     } else if (interaction?.zone === 'DEFENSE_CONSOLE') {
       setActiveMinigame('defense');
+    } else if (interaction?.zone === 'LIFE_SUPPORT') {
+      setActiveMinigame('life-support');
     }
-  }, [isGameActive, interaction, engineStatus, activeMinigame]);
+  }, [isGameActive, interaction, activeMinigame]);
 
   // Passive damage from unattended crises
   useEffect(() => {
@@ -90,7 +91,7 @@ export default function GameUI() {
         clearInterval(passiveDamageTimerRef.current);
     }
 
-    if (isGameActive && (isUnderAsteroidAttack || isNavCourseDeviating)) {
+    if (isGameActive && isCrisisActive) {
         passiveDamageTimerRef.current = setInterval(() => {
             if (isUnderAsteroidAttack && activeMinigame !== 'defense') {
                 takeHit();
@@ -100,6 +101,10 @@ export default function GameUI() {
                 takeHit();
                 toast({ title: "Off Course!", description: "Ship integrity failing from course deviation!", variant: "destructive" });
             }
+            if (isLifeSupportFailing && activeMinigame !== 'life-support') {
+                takeHit();
+                toast({ title: "Life Support Critical!", description: "Atmosphere is becoming toxic!", variant: "destructive" });
+            }
         }, 5000);
     }
 
@@ -108,7 +113,7 @@ export default function GameUI() {
             clearInterval(passiveDamageTimerRef.current);
         }
     };
-  }, [isGameActive, isUnderAsteroidAttack, isNavCourseDeviating, activeMinigame, takeHit, toast]);
+  }, [isGameActive, isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing, activeMinigame, takeHit, toast, isCrisisActive]);
 
 
   const handleInteractionKey = useCallback((e: KeyboardEvent) => {
@@ -135,12 +140,7 @@ export default function GameUI() {
       const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
 
       if (distance < INTERACTION_DISTANCE) {
-          if (zoneKey === 'ELECTRICAL_PANEL') {
-              closestZone = {
-                  prompt: engineStatus === 'broken' ? `Press [E] to repair ${zone.name}` : `${zone.name}: All systems nominal.`,
-                  zone: 'ELECTRICAL_PANEL'
-              };
-          } else if (zoneKey === 'DEFENSE_CONSOLE') {
+          if (zoneKey === 'DEFENSE_CONSOLE') {
               closestZone = {
                 prompt: isUnderAsteroidAttack ? `Press [E] to ACTIVATE DEFENSES!` : `Press [E] to use ${zone.name}`,
                 zone: 'DEFENSE_CONSOLE'
@@ -150,6 +150,11 @@ export default function GameUI() {
                 prompt: isNavCourseDeviating ? 'Press [E] to CORRECT COURSE!' : `Press [E] to use ${zone.name}`,
                 zone: 'NAV_CONSOLE'
               };
+          } else if (zoneKey === 'LIFE_SUPPORT') {
+            closestZone = {
+              prompt: isLifeSupportFailing ? 'Press [E] to RESTORE LIFE SUPPORT!' : `Press [E] to use ${zone.name}`,
+              zone: 'LIFE_SUPPORT'
+            };
           } else {
                closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
           }
@@ -161,23 +166,23 @@ export default function GameUI() {
         setInteraction(closestZone);
     }
 
-  }, [playerPosition, isGameActive, interaction, engineStatus, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating]);
+  }, [playerPosition, isGameActive, interaction, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing]);
 
   const triggerRandomEvent = useCallback(() => {
     if (!isGameActive || isCrisisActive) return;
 
     const eventType = Math.random();
-    if (eventType < 0.4 && engineStatus === 'ok') {
-      setEngineStatus('broken');
-      toast({ title: "Warning!", description: "Electrical panel malfunction!", variant: "destructive" });
-    } else if (eventType < 0.7) {
+    if (eventType < 0.33) {
       setIsNavCourseDeviating(true);
       toast({ title: "Alert!", description: "Course deviation detected! Get to the navigation console!", variant: "destructive" });
-    } else {
+    } else if (eventType < 0.66) {
       setIsUnderAsteroidAttack(true);
       toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
+    } else {
+      setIsLifeSupportFailing(true);
+      toast({ title: "Warning!", description: "Life support systems are failing!", variant: 'destructive' });
     }
-  }, [isGameActive, engineStatus, toast, setEngineStatus, isCrisisActive]);
+  }, [isGameActive, toast, isCrisisActive]);
 
   // Main Event Scheduling Loop
   useEffect(() => {
@@ -238,6 +243,7 @@ export default function GameUI() {
     setIsPaused(false);
     setIsUnderAsteroidAttack(false);
     setIsNavCourseDeviating(false);
+    setIsLifeSupportFailing(false);
     
     // Clear any lingering timers from previous game sessions
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
@@ -255,7 +261,7 @@ export default function GameUI() {
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
   }
   
-  const onMinigameClose = (type: 'engine' | 'navigation' | 'defense', success: boolean) => {
+  const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean) => {
     setActiveMinigame(null);
 
     if (passiveDamageTimerRef.current) {
@@ -263,25 +269,20 @@ export default function GameUI() {
     }
 
     if (success) {
-        const points = type === 'engine' ? 150 : (type === 'navigation' ? 100 : 200);
+        const points = type === 'life-support' ? 50 : (type === 'navigation' ? 100 : 200);
         setScore(s => s + points);
         toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
 
-        if (type === 'engine') setEngineStatus('ok');
         if (type === 'defense') setIsUnderAsteroidAttack(false);
         if (type === 'navigation') setIsNavCourseDeviating(false);
+        if (type === 'life-support') setIsLifeSupportFailing(false);
 
         setEventIntensity(e => Math.min(10, e + 0.5));
 
     } else {
-        if (type === 'engine') {
-            setGameState('game-over');
-            return;
-        } else if (type === 'defense' || type === 'navigation') {
-            takeHit();
-            setEventIntensity(e => Math.max(1, e - 1));
-            toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive' });
-        }
+        takeHit();
+        setEventIntensity(e => Math.max(1, e - 1));
+        toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive' });
     }
   };
 
@@ -296,9 +297,9 @@ export default function GameUI() {
   };
   
   const getAlertMessage = () => {
-    if (engineStatus === 'broken') return 'ELECTRICAL FAILURE';
     if (isUnderAsteroidAttack) return 'ASTEROID ATTACK';
     if (isNavCourseDeviating) return 'COURSE DEVIATION';
+    if (isLifeSupportFailing) return 'LIFE SUPPORT FAILURE';
     return null;
   }
 
@@ -404,7 +405,7 @@ export default function GameUI() {
            </AnimatePresence>
           
           <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm z-0">Cockpit</div>
-          <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">Engineering</div>
+          <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">Main Bay</div>
 
           {/* Navigation Console */}
           <div className="absolute flex flex-col items-center" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y, transform: 'translate(-50%, -50%)' }}>
@@ -430,14 +431,14 @@ export default function GameUI() {
             <span className="text-xs mt-1 text-muted-foreground">{ZONES.DEFENSE_CONSOLE.name}</span>
           </div>
 
-          {/* Electrical Panel */}
-          <div className="absolute flex flex-col items-center" style={{ left: ZONES.ELECTRICAL_PANEL.x, top: ZONES.ELECTRICAL_PANEL.y, transform: 'translate(-50%, -50%)' }}>
-            <div className={`w-24 h-32 bg-slate-800 border-2 rounded-lg p-2 flex flex-col justify-between ${engineStatus === 'ok' ? 'border-green-500' : 'border-red-500 animate-engine-glow'}`}>
-                <div className="h-4 bg-slate-600 rounded-sm"></div>
-                <div className="h-12 bg-slate-700 rounded-md"></div>
-                <div className="h-4 bg-slate-600 rounded-sm"></div>
+          {/* Life Support Console */}
+           <div className="absolute flex flex-col items-center" style={{ left: ZONES.LIFE_SUPPORT.x, top: ZONES.LIFE_SUPPORT.y, transform: 'translate(-50%, -50%)'}}>
+            <div className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${isLifeSupportFailing ? 'border-red-500 animate-pulse' : 'border-slate-500'}`}>
+              <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
+                  <HeartPulse className={`w-12 h-12 transition-colors ${isLifeSupportFailing ? 'text-red-500' : 'text-green-500'}`} />
+              </div>
             </div>
-            <span className="text-xs mt-1 text-muted-foreground">{ZONES.ELECTRICAL_PANEL.name}</span>
+            <span className="text-xs mt-1 text-muted-foreground">{ZONES.LIFE_SUPPORT.name}</span>
           </div>
 
           <Player
@@ -468,11 +469,6 @@ export default function GameUI() {
         )}
       </div>
       
-      <EngineRepairMinigame
-        open={activeMinigame === 'engine'}
-        onClose={(success) => onMinigameClose('engine', success)}
-        difficulty={eventIntensity}
-      />
       <NavigationMinigame
         open={activeMinigame === 'navigation'}
         onClose={(success) => onMinigameClose('navigation', success)}
@@ -483,6 +479,11 @@ export default function GameUI() {
         onClose={(success) => onMinigameClose('defense', success)}
         difficulty={eventIntensity}
         isUnderAttack={isUnderAsteroidAttack}
+       />
+       <LifeSupportMinigame
+          open={activeMinigame === 'life-support'}
+          onClose={(success) => onMinigameClose('life-support', success)}
+          difficulty={eventIntensity}
        />
     </motion.div>
   );
