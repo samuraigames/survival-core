@@ -21,6 +21,8 @@ import { Progress } from './ui/progress';
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 100;
+const TOTAL_WIDTH = SHIP_WIDTH;
+const TOTAL_HEIGHT = SHIP_HEIGHT + HUD_HEIGHT;
 const GAME_AREA_HEIGHT = SHIP_HEIGHT; 
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
@@ -49,6 +51,7 @@ export default function GameUI() {
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
   const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false); // New crisis state
+  const [scale, setScale] = useState(1);
   
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -56,6 +59,24 @@ export default function GameUI() {
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
+  const gameAreaRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+    const handleResize = () => {
+      const container = gameAreaRef.current?.parentElement;
+      if (container) {
+        const { clientWidth, clientHeight } = container;
+        const scaleX = clientWidth / TOTAL_WIDTH;
+        const scaleY = clientHeight / TOTAL_HEIGHT;
+        setScale(Math.min(scaleX, scaleY, 1));
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
@@ -309,6 +330,15 @@ export default function GameUI() {
   const interactionText = interaction?.prompt.replace('Press [E] to ', '');
 
   return (
+    <div 
+      ref={gameAreaRef}
+      style={{
+        width: TOTAL_WIDTH,
+        height: TOTAL_HEIGHT,
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+      }}
+    >
     <motion.div 
       className="w-full h-full flex flex-col items-center justify-center font-body text-foreground bg-black"
       animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
@@ -486,6 +516,7 @@ export default function GameUI() {
           difficulty={eventIntensity}
        />
     </motion.div>
+    </div>
   );
 }
     
