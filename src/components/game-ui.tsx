@@ -344,6 +344,7 @@ export default function GameUI() {
   
   // Camera follow animation
   useEffect(() => {
+    if (scope.current) {
       const cameraX = -playerPosition.x + SHIP_WIDTH / 2;
       const cameraY = -playerPosition.y + SHIP_HEIGHT / 2;
       
@@ -351,6 +352,7 @@ export default function GameUI() {
       const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, cameraY));
 
       animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 100, damping: 20, mass: 0.5 });
+    }
   }, [playerPosition, animate, scope]);
 
   if (gameState === 'start') {
