@@ -73,11 +73,9 @@ export default function GameUI() {
       }
     };
     
-    // Call on mount and on resize
     handleResize();
     window.addEventListener('resize', handleResize);
     
-    // Set up a ResizeObserver to handle more complex layout changes
     const resizeObserver = new ResizeObserver(handleResize);
     if (gameAreaRef.current) {
         resizeObserver.observe(gameAreaRef.current);
@@ -97,15 +95,15 @@ export default function GameUI() {
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
-    setShipHits(h => {
-        const newHits = h + 1;
-        if (newHits >= 10) {
-            setGameState('game-over');
-        }
-        return newHits;
-    });
+    setShipHits(h => h + 1);
     setTimeout(() => setIsShaking(false), 500);
-  }, [setGameState]);
+  }, []);
+
+  useEffect(() => {
+    if (shipHits >= 10 && gameState === 'playing') {
+      setGameState('game-over');
+    }
+  }, [shipHits, gameState, setGameState]);
   
   const triggerInteraction = useCallback(() => {
     if (!isGameActive || !interaction || activeMinigame) return;
@@ -279,7 +277,6 @@ export default function GameUI() {
     setIsNavCourseDeviating(false);
     setIsLifeSupportFailing(false);
     
-    // Clear any lingering timers from previous game sessions
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
