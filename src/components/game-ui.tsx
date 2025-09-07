@@ -51,7 +51,6 @@ export default function GameUI() {
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
   const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false);
-  const [scale, setScale] = useState(1);
   
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -59,35 +58,6 @@ export default function GameUI() {
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
-  const gameAreaRef = useRef<HTMLDivElement>(null);
-
-
-  useEffect(() => {
-    const handleResize = () => {
-      const container = gameAreaRef.current;
-      if (container) {
-        const { clientWidth, clientHeight } = container;
-        const scaleX = clientWidth / TOTAL_WIDTH;
-        const scaleY = clientHeight / TOTAL_HEIGHT;
-        setScale(Math.min(scaleX, scaleY));
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    
-    const resizeObserver = new ResizeObserver(handleResize);
-    if (gameAreaRef.current) {
-        resizeObserver.observe(gameAreaRef.current);
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (gameAreaRef.current) {
-          resizeObserver.unobserve(gameAreaRef.current);
-      }
-    };
-  }, []);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
@@ -340,79 +310,94 @@ export default function GameUI() {
   const interactionText = interaction?.prompt.replace('Press [E] to ', '');
 
   return (
-    <div 
-      ref={gameAreaRef}
-      className="w-full h-full flex items-center justify-center p-4 box-border"
-    >
-      <motion.div 
-        className="flex flex-col items-center justify-center font-body text-foreground bg-black"
+    <div className="w-full h-full p-4 box-border flex items-center justify-center">
+      <motion.div
+        className="w-full max-w-full max-h-full bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40"
         style={{
-          width: TOTAL_WIDTH,
-          height: TOTAL_HEIGHT,
-          transform: `scale(${scale})`,
-          transformOrigin: 'center center',
+          aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
         }}
         animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
         transition={{ duration: 0.5 }}
       >
         {/* HUD */}
-        <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT, width: SHIP_WIDTH}}>
-            <div className="p-2 flex flex-col justify-between h-full">
-              {/* Top Row: Journey Progress */}
-              <div className="flex items-center gap-2 w-full">
-                <Rocket className="w-6 h-6 text-accent" />
-                <Progress value={journeyProgressPercentage} className="w-full h-3" />
-                <Globe className="w-6 h-6 text-green-400" />
-              </div>
+        <div
+          className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20"
+          style={{ height: HUD_HEIGHT }}
+        >
+          <div className="p-2 flex flex-col justify-between h-full">
+            {/* Top Row: Journey Progress */}
+            <div className="flex items-center gap-2 w-full">
+              <Rocket className="w-6 h-6 text-accent" />
+              <Progress value={journeyProgressPercentage} className="w-full h-3" />
+              <Globe className="w-6 h-6 text-green-400" />
+            </div>
 
-              {/* Bottom Row: Controls, Status, and Alerts */}
-              <div className="flex justify-between items-center">
-                {/* Left Section: Pause & Status */}
-                <div className='flex items-center gap-4'>
-                    <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
-                        {isPaused ? <Play /> : <Pause />}
-                        <span className="sr-only">{isPaused ? 'Resume' : 'Pause'}</span>
-                    </Button>
-                    <div>
-                      <Badge variant="outline" className="text-lg py-1 px-4 border-accent">Score: {score}</Badge>
-                      <div className="flex items-center gap-2 mt-1">
-                         <Shield className="h-4 w-4 text-cyan-400"/>
-                         <Progress value={shipIntegrityPercentage} className="w-32 h-2"/>
-                      </div>
-                    </div>
-                </div>
-
-                {/* Center Section: Alerts */}
-                <div className="flex flex-col items-center gap-1">
-                    <AnimatePresence>
-                    {alertMessage && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                        >
-                        <Badge variant='destructive' className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse">
-                            <AlertTriangle className="mr-2 h-4 w-4"/>
-                             {alertMessage}
-                        </Badge>
-                        </motion.div>
-                    )}
-                    </AnimatePresence>
-                </div>
-                
-                {/* Right Section: Controls */}
-                {!isMobile && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
-                    <Gamepad2 className="w-5 h-5 text-accent"/>
-                    <div>
-                      <p>Move: <span className="font-bold text-foreground">W, A, S, D</span></p>
-                      <p>Interact: <span className="font-bold text-foreground">E</span></p>
-                    </div>
+            {/* Bottom Row: Controls, Status, and Alerts */}
+            <div className="flex justify-between items-center">
+              {/* Left Section: Pause & Status */}
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsPaused(!isPaused)}
+                >
+                  {isPaused ? <Play /> : <Pause />}
+                  <span className="sr-only">
+                    {isPaused ? 'Resume' : 'Pause'}
+                  </span>
+                </Button>
+                <div>
+                  <Badge
+                    variant="outline"
+                    className="text-lg py-1 px-4 border-accent"
+                  >
+                    Score: {score}
+                  </Badge>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Shield className="h-4 w-4 text-cyan-400" />
+                    <Progress value={shipIntegrityPercentage} className="w-32 h-2" />
                   </div>
-                )}
+                </div>
               </div>
+
+              {/* Center Section: Alerts */}
+              <div className="flex flex-col items-center gap-1">
+                <AnimatePresence>
+                  {alertMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <Badge
+                        variant="destructive"
+                        className="text-sm py-1 px-3 transition-colors duration-500 animate-pulse"
+                      >
+                        <AlertTriangle className="mr-2 h-4 w-4" />
+                        {alertMessage}
+                      </Badge>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Right Section: Controls */}
+              {!isMobile && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
+                  <Gamepad2 className="w-5 h-5 text-accent" />
+                  <div>
+                    <p>
+                      Move: <span className="font-bold text-foreground">W, A, S, D</span>
+                    </p>
+                    <p>
+                      Interact: <span className="font-bold text-foreground">E</span>
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
         <div
           className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden flex flex-col"
@@ -421,73 +406,144 @@ export default function GameUI() {
           {/* Game Area */}
           <div className="relative w-full h-full bg-grid-pattern bg-repeat">
             <AnimatePresence>
-            {interaction && !isMobile && (
-              <motion.div
-                style={getPromptPosition()}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute bg-background/80 p-2 px-3 rounded-lg border text-accent font-headline z-20 text-sm whitespace-nowrap"
-              >
-                {interaction.prompt}
-              </motion.div>
-            )}
-            </AnimatePresence>
-             <AnimatePresence>
-              {isPaused && (
-                   <motion.div
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   exit={{ opacity: 0 }}
-                   className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30"
-                 >
-                   <div className="text-center">
-                     <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
-                     <Button className="mt-4" onClick={() => setIsPaused(false)}>Resume</Button>
-                   </div>
-                 </motion.div>
+              {interaction && !isMobile && (
+                <motion.div
+                  style={getPromptPosition()}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute bg-background/80 p-2 px-3 rounded-lg border text-accent font-headline z-20 text-sm whitespace-nowrap"
+                >
+                  {interaction.prompt}
+                </motion.div>
               )}
-             </AnimatePresence>
-            
-            <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm z-0">Cockpit</div>
-            <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">Main Bay</div>
+            </AnimatePresence>
+            <AnimatePresence>
+              {isPaused && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30"
+                >
+                  <div className="text-center">
+                    <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
+                    <Button className="mt-4" onClick={() => setIsPaused(false)}>
+                      Resume
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm z-0">
+              Cockpit
+            </div>
+            <div className="absolute bottom-2 right-2 p-2 border-t border-l border-dashed rounded-tl-lg text-muted-foreground text-sm z-0">
+              Main Bay
+            </div>
 
             {/* Navigation Console */}
-            <div className="absolute flex flex-col items-center" style={{ left: ZONES.NAV_CONSOLE.x, top: ZONES.NAV_CONSOLE.y, transform: 'translate(-50%, -50%)' }}>
-              <div className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${isNavCourseDeviating ? 'border-red-500 animate-pulse' : 'border-slate-500'}`}>
+            <div
+              className="absolute flex flex-col items-center"
+              style={{
+                left: ZONES.NAV_CONSOLE.x,
+                top: ZONES.NAV_CONSOLE.y,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <div
+                className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${
+                  isNavCourseDeviating
+                    ? 'border-red-500 animate-pulse'
+                    : 'border-slate-500'
+                }`}
+              >
                 <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center overflow-hidden">
-                    {isApproachingVictory ? (
-                       <Image src="https://picsum.photos/200/150" data-ai-hint="photo earth" alt="Earth" width={96} height={64} className="object-cover" />
-                    ) : (
-                      <div className="w-16 h-8 bg-cyan-400/20 rounded-sm border border-cyan-400 animate-pulse"></div>
-                    )}
+                  {isApproachingVictory ? (
+                    <Image
+                      src="https://picsum.photos/200/150"
+                      data-ai-hint="photo earth"
+                      alt="Earth"
+                      width={96}
+                      height={64}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-8 bg-cyan-400/20 rounded-sm border border-cyan-400 animate-pulse"></div>
+                  )}
                 </div>
               </div>
-              <span className="text-xs mt-1 text-muted-foreground">{ZONES.NAV_CONSOLE.name}</span>
+              <span className="text-xs mt-1 text-muted-foreground">
+                {ZONES.NAV_CONSOLE.name}
+              </span>
             </div>
-            
+
             {/* Defense Console */}
-            <div className="absolute flex flex-col items-center" style={{ left: ZONES.DEFENSE_CONSOLE.x, top: ZONES.DEFENSE_CONSOLE.y, transform: 'translate(-50%, -50%)'}}>
-              <div className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${isUnderAsteroidAttack ? 'border-red-500 animate-pulse' : 'border-slate-500'}`}>
+            <div
+              className="absolute flex flex-col items-center"
+              style={{
+                left: ZONES.DEFENSE_CONSOLE.x,
+                top: ZONES.DEFENSE_CONSOLE.y,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <div
+                className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${
+                  isUnderAsteroidAttack
+                    ? 'border-red-500 animate-pulse'
+                    : 'border-slate-500'
+                }`}
+              >
                 <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
-                    <div className={`w-16 h-8 rounded-sm border transition-colors ${isUnderAsteroidAttack ? 'bg-red-500/20 border-red-500' : 'bg-green-500/20 border-green-500'}`}></div>
+                  <div
+                    className={`w-16 h-8 rounded-sm border transition-colors ${
+                      isUnderAsteroidAttack
+                        ? 'bg-red-500/20 border-red-500'
+                        : 'bg-green-500/20 border-green-500'
+                    }`}
+                  ></div>
                 </div>
               </div>
-              <span className="text-xs mt-1 text-muted-foreground">{ZONES.DEFENSE_CONSOLE.name}</span>
+              <span className="text-xs mt-1 text-muted-foreground">
+                {ZONES.DEFENSE_CONSOLE.name}
+              </span>
             </div>
 
             {/* Life Support Console */}
-             <div className="absolute flex flex-col items-center" style={{ left: ZONES.LIFE_SUPPORT.x, top: ZONES.LIFE_SUPPORT.y, transform: 'translate(-50%, -50%)'}}>
-              <div className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${isLifeSupportFailing ? 'border-red-500 animate-pulse' : 'border-slate-500'}`}>
+            <div
+              className="absolute flex flex-col items-center"
+              style={{
+                left: ZONES.LIFE_SUPPORT.x,
+                top: ZONES.LIFE_SUPPORT.y,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <div
+                className={`w-24 h-16 bg-slate-700 border-2 rounded-md p-1 transition-colors ${
+                  isLifeSupportFailing
+                    ? 'border-red-500 animate-pulse'
+                    : 'border-slate-500'
+                }`}
+              >
                 <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
-                    <HeartPulse className={`w-12 h-12 transition-colors ${isLifeSupportFailing ? 'text-red-500' : 'text-green-500'}`} />
+                  <HeartPulse
+                    className={`w-12 h-12 transition-colors ${
+                      isLifeSupportFailing ? 'text-red-500' : 'text-green-500'
+                    }`}
+                  />
                 </div>
               </div>
-              <span className="text-xs mt-1 text-muted-foreground">{ZONES.LIFE_SUPPORT.name}</span>
+              <span className="text-xs mt-1 text-muted-foreground">
+                {ZONES.LIFE_SUPPORT.name}
+              </span>
             </div>
 
             <Player
-              initialPosition={{ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 }}
+              initialPosition={{
+                x: SHIP_WIDTH / 2,
+                y: GAME_AREA_HEIGHT / 2,
+              }}
               onPositionChange={setPlayerPosition}
               size={PLAYER_SIZE}
               bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
@@ -495,7 +551,7 @@ export default function GameUI() {
               joystickVector={joystickVector}
             />
           </div>
-          
+
           {isMobile && isGameActive && (
             <div className="absolute bottom-5 left-5 z-20">
               <Joystick onMove={setJoystickVector} />
@@ -513,7 +569,7 @@ export default function GameUI() {
             </div>
           )}
         </div>
-        
+
         <NavigationMinigame
           open={activeMinigame === 'navigation'}
           onClose={(success) => onMinigameClose('navigation', success)}
@@ -524,13 +580,15 @@ export default function GameUI() {
           onClose={(success) => onMinigameClose('defense', success)}
           difficulty={eventIntensity}
           isUnderAttack={isUnderAsteroidAttack}
-         />
-         <LifeSupportMinigame
-            open={activeMinigame === 'life-support'}
-            onClose={(success) => onMinigameClose('life-support', success)}
-            difficulty={eventIntensity}
-         />
+        />
+        <LifeSupportMinigame
+          open={activeMinigame === 'life-support'}
+          onClose={(success) => onMinigameClose('life-support', success)}
+          difficulty={eventIntensity}
+        />
       </motion.div>
     </div>
   );
 }
+
+    
