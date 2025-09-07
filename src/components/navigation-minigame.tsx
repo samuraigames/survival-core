@@ -149,7 +149,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   const viewablePath = path.slice(Math.floor(progress), Math.floor(progress) + Math.ceil(GAME_WIDTH / 5) + 2);
   const pathD = viewablePath.map((y, i) => {
     const x = i * 5; // Draw path segments
-    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y + pathYOffset}`;
   }).join(' ');
   
 
@@ -163,7 +163,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
         <div className="relative overflow-hidden rounded-md border" style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}>
             <div className="absolute inset-0 bg-black" />
             
-             <motion.svg width={GAME_WIDTH} height={GAME_HEIGHT} className="absolute inset-0" animate={{ y: pathYOffset }} transition={{ type: 'spring', stiffness: 100, damping: 20}}>
+             <motion.svg width={GAME_WIDTH} height={GAME_HEIGHT} className="absolute inset-0">
                 {path.length > 0 && <path d={pathD} stroke="hsl(var(--primary))" strokeWidth={PATH_WIDTH} fill="none" strokeLinejoin="round" strokeOpacity="0.5" />}
                 {path.length > 0 && <path d={pathD} stroke="hsl(var(--accent))" strokeWidth="2" fill="none" strokeLinejoin="round" />}
             </motion.svg>

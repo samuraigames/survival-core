@@ -38,13 +38,11 @@ const GameOverScreen = ({ score, onRestart, won, customMessage }: GameOverScreen
               GAME OVER
             </h1>
             <p className="mt-4 text-xl md:text-2xl text-muted-foreground font-body max-w-2xl mx-auto">
-              {customMessage || `Your final score was: ${score}`}
+              {customMessage || "Your journey has ended."}
             </p>
-             {customMessage && (
-              <p className="mt-2 text-lg text-muted-foreground font-body max-w-2xl mx-auto">
+             <p className="mt-2 text-lg text-muted-foreground font-body max-w-2xl mx-auto">
                  Final Score: <span className="text-accent font-bold">{score}</span>
-              </p>
-             )}
+             </p>
             <p className="mt-2 text-lg text-muted-foreground font-body max-w-2xl mx-auto">
               The void is unforgiving.
             </p>

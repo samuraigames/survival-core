@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useGame } from '@/hooks/use-game';
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from '@/hooks/use-mobile';
 import NavigationMinigame from './navigation-minigame';
 import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import LifeSupportMinigame from './life-support-minigame';
-import StartScreen from './start-screen';
-import GameOverScreen from './game-over-screen';
 import Joystick from './joystick';
 import { Badge } from './ui/badge';
 import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan } from 'lucide-react';
@@ -41,8 +38,15 @@ const ZONES = {
 
 type ZoneName = keyof typeof ZONES | null;
 
-export default function GameUI() {
-  const { gameState, setGameState, score, setScore, eventIntensity, setEventIntensity, resetGame } = useGame();
+interface GameUIProps {
+    onGameWin: (score: number) => void;
+    onGameLose: (score: number, message: string) => void;
+    initialScore: number;
+}
+
+export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIProps) {
+  const [score, setScore] = useState(initialScore);
+  const [eventIntensity, setEventIntensity] = useState(1);
   const [playerPosition, setPlayerPosition] = useState({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
@@ -52,7 +56,6 @@ export default function GameUI() {
   const [isShaking, setIsShaking] = useState(false);
   const [gameTime, setGameTime] = useState(0);
   const [engineTime, setEngineTime] = useState(ENGINE_OVERLOAD_SECONDS);
-  const [gameWon, setGameWon] = useState(false);
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
   const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false);
@@ -67,19 +70,9 @@ export default function GameUI() {
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const gameLoopRef = useRef<number>();
 
-  const isGameActive = gameState === 'playing' && !isPaused;
+  const isGameActive = !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
-
-  const handleGameOver = useCallback((message: string, won: boolean) => {
-    if (won) {
-        setGameWon(true);
-        setGameState('game-over');
-    } else {
-        toast({ title: "Mission Failed", description: message, variant: "destructive" });
-        resetGame();
-    }
-  }, [setGameState, resetGame, toast]);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -89,16 +82,22 @@ export default function GameUI() {
   }, []);
   
   useEffect(() => {
-    if (shipHits >= 10 && gameState === 'playing') {
-      handleGameOver("The ship's hull has been breached!", false);
+    if (shipHits >= 10) {
+      onGameLose(score, "The ship's hull has been breached!");
     }
-  }, [shipHits, gameState, handleGameOver]);
+  }, [shipHits, onGameLose, score]);
   
   useEffect(() => {
-    if (engineTime <= 0 && gameState === 'playing') {
-      handleGameOver("The engine has overloaded!", false);
+    if (engineTime <= 0) {
+      onGameLose(score, "The engine has overloaded!");
     }
-  }, [engineTime, gameState, handleGameOver]);
+  }, [engineTime, onGameLose, score]);
+
+  useEffect(() => {
+    if (gameTime >= WIN_TIME_SECONDS) {
+        onGameWin(score);
+    }
+  }, [gameTime, onGameWin, score]);
 
 
   const triggerInteraction = useCallback(() => {
@@ -106,12 +105,12 @@ export default function GameUI() {
 
     if (interaction.zone === 'NAV_CONSOLE' && isNavCourseDeviating) {
       setActiveMinigame('navigation');
-    } else if (interaction.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) {
+    } else if (interaction.zone === 'DEFENSE_CONSOLE') { // Always allow access to defense console
       setActiveMinigame('defense');
     } else if (interaction.zone === 'LIFE_SUPPORT' && isLifeSupportFailing) {
       setActiveMinigame('life-support');
     }
-  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isUnderAsteroidAttack, isLifeSupportFailing]);
+  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isLifeSupportFailing]);
 
   // Passive damage from unattended crises
   useEffect(() => {
@@ -244,32 +243,13 @@ export default function GameUI() {
       }
     };
   }, [isGameActive]);
-
-  // Win Condition Check
+  
+   // Initial setup
   useEffect(() => {
-    if (gameTime >= WIN_TIME_SECONDS && gameState === 'playing') {
-      handleGameOver("You reached Earth!", true);
-    }
-  }, [gameTime, gameState, handleGameOver]);
-
-  // Game Over Cleanup
-  useEffect(() => {
-    if (gameState === 'game-over' || gameState === 'start') {
-        if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
-        if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
-        if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-    }
-  }, [gameState]);
-
-
-  const handleStartGame = () => {
-    resetGame();
     setPlayerPosition({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
-    setGameState('playing');
     setShipHits(0);
     setGameTime(0);
     setEngineTime(ENGINE_OVERLOAD_SECONDS);
-    setGameWon(false);
     setIsPaused(false);
     setIsUnderAsteroidAttack(false);
     setIsNavCourseDeviating(false);
@@ -279,8 +259,9 @@ export default function GameUI() {
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
 
-    setTimeout(triggerRandomEvent, 1000); 
-  };
+    // Start first event quickly
+    setTimeout(triggerRandomEvent, 5000); 
+  }, [triggerRandomEvent]);
   
    // Keyboard input listeners
   useEffect(() => {
@@ -354,14 +335,6 @@ export default function GameUI() {
       animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 100, damping: 20, mass: 0.5 });
     }
   }, [playerPosition, animate, scope]);
-
-  if (gameState === 'start') {
-    return <StartScreen onStart={handleStartGame} />;
-  }
-  
-  if (gameState === 'game-over' && gameWon) {
-    return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} customMessage={gameWon ? undefined : "You were lost to the void."}/>;
-  }
   
   const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean, manualClose: boolean) => {
     setActiveMinigame(null);
@@ -419,6 +392,7 @@ export default function GameUI() {
         height: TOTAL_HEIGHT,
         maxWidth: '100%',
         maxHeight: '100%',
+        aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
       }}
     >
       <motion.div
@@ -512,9 +486,9 @@ export default function GameUI() {
         className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden"
         style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
       >
-         <motion.div ref={scope} className="absolute top-0 left-0" style={{width: WORLD_WIDTH, height: WORLD_HEIGHT}}>
+         <motion.div ref={scope} className="absolute top-0 left-0 bg-grid-pattern" style={{width: WORLD_WIDTH, height: WORLD_HEIGHT}}>
             {/* World Content */}
-            <div className="absolute inset-0 bg-grid-pattern bg-repeat" style={{backgroundSize: '40px 40px'}}></div>
+            <div className="absolute inset-0" style={{backgroundSize: '40px 40px'}}></div>
 
             <AnimatePresence>
               {interaction && !isMobile && (
