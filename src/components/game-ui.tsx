@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Player from './player';
 import { useGame } from '@/hooks/use-game';
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -13,17 +12,21 @@ import GameOverScreen from './game-over-screen';
 import Joystick from './joystick';
 import { Badge } from './ui/badge';
 import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimate } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
 import { Progress } from './ui/progress';
 
+// World dimensions
+const WORLD_WIDTH = 1200;
+const WORLD_HEIGHT = 900;
+
+// Viewport dimensions
 const SHIP_WIDTH = 800;
 const SHIP_HEIGHT = 600;
 const HUD_HEIGHT = 100;
 const TOTAL_WIDTH = SHIP_WIDTH;
 const TOTAL_HEIGHT = SHIP_HEIGHT + HUD_HEIGHT;
-const GAME_AREA_HEIGHT = SHIP_HEIGHT; 
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
@@ -31,16 +34,16 @@ const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
 const ENGINE_OVERLOAD_SECONDS = 10 * 60; // 10 minutes to lose
 
 const ZONES = {
-  NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
-  DEFENSE_CONSOLE: { x: SHIP_WIDTH * 0.75, y: 150, name: "Defense" },
-  LIFE_SUPPORT: { x: SHIP_WIDTH / 2, y: SHIP_HEIGHT - 100, name: "Life Support" },
+  NAV_CONSOLE: { x: WORLD_WIDTH / 2 - 200, y: WORLD_HEIGHT / 2 - 100, name: "Navigation" },
+  DEFENSE_CONSOLE: { x: WORLD_WIDTH / 2 + 200, y: WORLD_HEIGHT / 2 - 100, name: "Defense" },
+  LIFE_SUPPORT: { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 + 150, name: "Life Support" },
 };
 
 type ZoneName = keyof typeof ZONES | null;
 
 export default function GameUI() {
   const { gameState, setGameState, score, setScore, eventIntensity, setEventIntensity, resetGame } = useGame();
-  const [playerPosition, setPlayerPosition] = useState({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
+  const [playerPosition, setPlayerPosition] = useState({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'navigation' | 'defense' | 'life-support' | null>(null);
@@ -50,7 +53,6 @@ export default function GameUI() {
   const [gameTime, setGameTime] = useState(0);
   const [engineTime, setEngineTime] = useState(ENGINE_OVERLOAD_SECONDS);
   const [gameWon, setGameWon] = useState(false);
-  const [gameOverMessage, setGameOverMessage] = useState("");
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
   const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false);
@@ -61,16 +63,23 @@ export default function GameUI() {
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [scope, animate] = useAnimate();
+  const keysPressed = useRef<{ [key: string]: boolean }>({});
+  const gameLoopRef = useRef<number>();
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
 
-  const handleGameOver = useCallback((message: string) => {
-    setGameOverMessage(message);
-    setGameState('game-over');
-  }, [setGameState]);
+  const handleGameOver = useCallback((message: string, won: boolean) => {
+    if (won) {
+        setGameWon(true);
+        setGameState('game-over');
+    } else {
+        toast({ title: "Mission Failed", description: message, variant: "destructive" });
+        resetGame();
+    }
+  }, [setGameState, resetGame, toast]);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -78,18 +87,19 @@ export default function GameUI() {
     setEngineTime(t => t - 2);
     setTimeout(() => setIsShaking(false), 500);
   }, []);
-
+  
   useEffect(() => {
     if (shipHits >= 10 && gameState === 'playing') {
-      handleGameOver("The ship's hull has been breached!");
+      handleGameOver("The ship's hull has been breached!", false);
     }
   }, [shipHits, gameState, handleGameOver]);
   
   useEffect(() => {
     if (engineTime <= 0 && gameState === 'playing') {
-      handleGameOver("The engine has overloaded!");
+      handleGameOver("The engine has overloaded!", false);
     }
   }, [engineTime, gameState, handleGameOver]);
+
 
   const triggerInteraction = useCallback(() => {
     if (!isGameActive || !interaction || activeMinigame) return;
@@ -238,14 +248,13 @@ export default function GameUI() {
   // Win Condition Check
   useEffect(() => {
     if (gameTime >= WIN_TIME_SECONDS && gameState === 'playing') {
-      setGameState('game-over');
-      setGameWon(true);
+      handleGameOver("You reached Earth!", true);
     }
-  }, [gameTime, gameState, setGameState]);
+  }, [gameTime, gameState, handleGameOver]);
 
   // Game Over Cleanup
   useEffect(() => {
-    if (gameState === 'game-over') {
+    if (gameState === 'game-over' || gameState === 'start') {
         if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
         if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
         if (gameTimerRef.current) clearInterval(gameTimerRef.current);
@@ -255,7 +264,7 @@ export default function GameUI() {
 
   const handleStartGame = () => {
     resetGame();
-    setPlayerPosition({ x: SHIP_WIDTH / 2, y: GAME_AREA_HEIGHT / 2 });
+    setPlayerPosition({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
     setGameState('playing');
     setShipHits(0);
     setGameTime(0);
@@ -265,7 +274,6 @@ export default function GameUI() {
     setIsUnderAsteroidAttack(false);
     setIsNavCourseDeviating(false);
     setIsLifeSupportFailing(false);
-    setGameOverMessage("");
     
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
@@ -274,12 +282,83 @@ export default function GameUI() {
     setTimeout(triggerRandomEvent, 1000); 
   };
   
+   // Keyboard input listeners
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      keysPressed.current[event.key.toLowerCase()] = true;
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      keysPressed.current[event.key.toLowerCase()] = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Game loop for smooth movement & camera
+  useEffect(() => {
+    const gameLoop = () => {
+        const isMovementPaused = !isGameActive || activeMinigame !== null;
+      if (!isMovementPaused) {
+        let { x, y } = playerPosition;
+        const speed = 5;
+
+        // Keyboard movement
+        if (keysPressed.current['w']) y -= speed;
+        if (keysPressed.current['s']) y += speed;
+        if (keysPressed.current['a']) x -= speed;
+        if (keysPressed.current['d']) x += speed;
+        
+        // Joystick movement
+        if (joystickVector.x !== 0 || joystickVector.y !== 0) {
+            x += joystickVector.x * speed;
+            y += joystickVector.y * speed;
+        }
+
+        // Clamp position to world bounds
+        const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(x, WORLD_WIDTH - PLAYER_SIZE / 2));
+        const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(y, WORLD_HEIGHT - PLAYER_SIZE / 2));
+        
+        const newPos = { x: clampedX, y: clampedY };
+        
+        if (newPos.x !== playerPosition.x || newPos.y !== playerPosition.y) {
+            setPlayerPosition(newPos);
+        }
+      }
+
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    };
+
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
+
+    return () => {
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+    };
+  }, [isGameActive, activeMinigame, playerPosition, joystickVector]);
+  
+  // Camera follow animation
+  useEffect(() => {
+      const cameraX = -playerPosition.x + SHIP_WIDTH / 2;
+      const cameraY = -playerPosition.y + SHIP_HEIGHT / 2;
+      
+      const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, cameraX));
+      const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, cameraY));
+
+      animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 100, damping: 20, mass: 0.5 });
+  }, [playerPosition, animate, scope]);
+
   if (gameState === 'start') {
     return <StartScreen onStart={handleStartGame} />;
   }
   
-  if (gameState === 'game-over') {
-    return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} customMessage={gameOverMessage} />;
+  if (gameState === 'game-over' && gameWon) {
+    return <GameOverScreen score={score} onRestart={handleStartGame} won={true} />;
   }
   
   const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean, manualClose: boolean) => {
@@ -331,28 +410,27 @@ export default function GameUI() {
   const interactionText = interaction?.prompt.replace('Press [E] to ', '');
 
   return (
-    <div ref={wrapperRef} className="w-full h-full p-4 box-border flex items-center justify-center bg-black">
-      <div
-        className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center"
-        style={{
-          width: TOTAL_WIDTH,
-          height: TOTAL_HEIGHT,
-          aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
-          maxWidth: '100%',
-          maxHeight: '100%',
-        }}
+    <div
+      className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center"
+      style={{
+        width: TOTAL_WIDTH,
+        height: TOTAL_HEIGHT,
+        aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
+        maxWidth: '100%',
+        maxHeight: '100%',
+      }}
+    >
+      <motion.div
+          className="w-full h-full flex flex-col"
+          animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
+          transition={{ duration: 0.5 }}
       >
-        <motion.div
-            className="w-full h-full flex flex-col"
-            animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
-            transition={{ duration: 0.5 }}
-        >
-        {/* HUD */}
-        <div
-          className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20"
-          style={{ height: HUD_HEIGHT }}
-        >
-          <div className="p-2 flex flex-col justify-between h-full">
+      {/* HUD */}
+      <div
+        className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20"
+        style={{ height: HUD_HEIGHT }}
+      >
+        <div className="p-2 flex flex-col justify-between h-full">
             {/* Top Row: Journey & Engine Progress */}
             <div className="flex items-center gap-4 w-full">
               <Rocket className="w-5 h-5 text-accent" />
@@ -427,14 +505,16 @@ export default function GameUI() {
               )}
             </div>
           </div>
-        </div>
+      </div>
 
-        <div
-          className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden flex flex-col"
-          style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
-        >
-          {/* Game Area */}
-          <div className="relative w-full h-full bg-grid-pattern bg-repeat">
+      <div
+        className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden"
+        style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
+      >
+         <motion.div ref={scope} className="absolute top-0 left-0" style={{width: WORLD_WIDTH, height: WORLD_HEIGHT}}>
+            {/* World Content */}
+            <div className="absolute inset-0 bg-grid-pattern bg-repeat" style={{backgroundSize: '40px 40px'}}></div>
+
             <AnimatePresence>
               {interaction && !isMobile && (
                 <motion.div
@@ -445,23 +525,6 @@ export default function GameUI() {
                   className="absolute bg-background/80 p-2 px-3 rounded-lg border text-accent font-headline z-20 text-sm whitespace-nowrap"
                 >
                   {interaction.prompt}
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <AnimatePresence>
-              {isPaused && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30"
-                >
-                  <div className="text-center">
-                    <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
-                    <Button className="mt-4" onClick={() => setIsPaused(false)}>
-                      Resume
-                    </Button>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -569,18 +632,46 @@ export default function GameUI() {
               </span>
             </div>
 
-            <Player
-              initialPosition={{
-                x: SHIP_WIDTH / 2,
-                y: GAME_AREA_HEIGHT / 2,
-              }}
-              onPositionChange={setPlayerPosition}
-              size={PLAYER_SIZE}
-              bounds={{ width: SHIP_WIDTH, height: GAME_AREA_HEIGHT }}
-              isMovementPaused={!isGameActive || activeMinigame !== null}
-              joystickVector={joystickVector}
-            />
-          </div>
+            {/* Player */}
+            <motion.div
+                className="absolute flex items-center justify-center rounded-full bg-white z-10"
+                animate={{ x: playerPosition.x, y: playerPosition.y }}
+                transition={{ type: "spring", stiffness: 700, damping: 35, duration: 0.1 }}
+                style={{
+                    width: PLAYER_SIZE,
+                    height: PLAYER_SIZE,
+                    boxShadow: '0 0 15px hsl(var(--accent))',
+                    transform: 'translate(-50%, -50%)',
+                    top: 0,
+                    left: 0,
+                }}
+                >
+                <div 
+                    className="w-4/5 h-2/5 bg-gray-400 rounded-full"
+                    style={{
+                    boxShadow: 'inset 0 0 5px rgba(0,0,0,0.4)',
+                    }}
+                ></div>
+            </motion.div>
+        </motion.div>
+        
+        <AnimatePresence>
+            {isPaused && (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30"
+            >
+                <div className="text-center">
+                <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
+                <Button className="mt-4" onClick={() => setIsPaused(false)}>
+                    Resume
+                </Button>
+                </div>
+            </motion.div>
+            )}
+        </AnimatePresence>
 
           {isMobile && isGameActive && (
             <div className="absolute bottom-5 left-5 z-20">
@@ -598,9 +689,8 @@ export default function GameUI() {
               </Button>
             </div>
           )}
-        </div>
-        </motion.div>
       </div>
+      </motion.div>
 
         <NavigationMinigame
           open={activeMinigame === 'navigation'}

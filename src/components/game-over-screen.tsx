@@ -11,7 +11,7 @@ interface GameOverScreenProps {
   customMessage?: string;
 }
 
-const GameOverScreen = ({ score, onRestart, won, customMessage }: GameOverScreenProps) => {
+const GameOverScreen = ({ score, onRestart, won }: GameOverScreenProps) => {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background text-foreground p-8">
       <motion.div
@@ -65,7 +65,7 @@ const GameOverScreen = ({ score, onRestart, won, customMessage }: GameOverScreen
           className="font-headline text-2xl px-12 py-8 rounded-full shadow-lg transition-all duration-300"
         >
           {won ? <Trophy className="mr-4 h-8 w-8" /> : <RotateCcw className="mr-4 h-8 w-8" />}
-          {won ? 'PLAY AGAIN' : 'RESTART MISSION'}
+          {won ? 'PLAY AGAIN' : 'RETURN TO MENU'}
         </Button>
       </motion.div>
     </div>
