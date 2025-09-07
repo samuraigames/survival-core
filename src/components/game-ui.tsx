@@ -69,6 +69,8 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
   const [scope, animate] = useAnimate();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const gameLoopRef = useRef<number>();
+  const isInitialMount = useRef(true);
+
 
   const isGameActive = !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
@@ -77,23 +79,26 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
   const takeHit = useCallback(() => {
     setIsShaking(true);
     setShipHits(h => h + 1);
-    setEngineTime(t => t - 2);
+    setEngineTime(t => Math.max(0, t - 2));
     setTimeout(() => setIsShaking(false), 500);
   }, []);
   
   useEffect(() => {
+    if (isInitialMount.current) return;
     if (shipHits >= 10) {
       onGameLose(score, "The ship's hull has been breached!");
     }
   }, [shipHits, onGameLose, score]);
   
   useEffect(() => {
+    if (isInitialMount.current) return;
     if (engineTime <= 0) {
       onGameLose(score, "The engine has overloaded!");
     }
   }, [engineTime, onGameLose, score]);
 
   useEffect(() => {
+    if (isInitialMount.current) return;
     if (gameTime >= WIN_TIME_SECONDS) {
         onGameWin(score);
     }
@@ -105,7 +110,7 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
 
     if (interaction.zone === 'NAV_CONSOLE' && isNavCourseDeviating) {
       setActiveMinigame('navigation');
-    } else if (interaction.zone === 'DEFENSE_CONSOLE') { // Always allow access to defense console
+    } else if (interaction.zone === 'DEFENSE_CONSOLE') { 
       setActiveMinigame('defense');
     } else if (interaction.zone === 'LIFE_SUPPORT' && isLifeSupportFailing) {
       setActiveMinigame('life-support');
@@ -247,13 +252,6 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
    // Initial setup
   useEffect(() => {
     setPlayerPosition({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
-    setShipHits(0);
-    setGameTime(0);
-    setEngineTime(ENGINE_OVERLOAD_SECONDS);
-    setIsPaused(false);
-    setIsUnderAsteroidAttack(false);
-    setIsNavCourseDeviating(false);
-    setIsLifeSupportFailing(false);
     
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
@@ -261,6 +259,9 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
 
     // Start first event quickly
     setTimeout(triggerRandomEvent, 5000); 
+
+    // Set initial mount to false after the first render.
+    isInitialMount.current = false;
   }, [triggerRandomEvent]);
   
    // Keyboard input listeners

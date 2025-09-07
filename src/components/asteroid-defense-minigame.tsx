@@ -108,7 +108,6 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     if (open) {
       resetState();
       
-      // Start spawning if it's an attack, or just show the defense screen
       spawnIntervalRef.current = setInterval(spawnAsteroid, Math.max(500, 2000 / (difficulty / 2)));
       
       return () => {
