@@ -128,34 +128,33 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 
     // Collision detection
     setAsteroids(prevAsteroids => {
-        const newAsteroids = [...prevAsteroids];
-        const destroyedAsteroidIds = new Set<number>();
-        const destroyedBulletIds = new Set<number>();
+      const newAsteroids = [...prevAsteroids];
+      const destroyedAsteroidIds = new Set<number>();
+      
+      setBullets(prevBullets => {
+          const remainingBullets = [];
+          for (const bullet of prevBullets) {
+              let bulletHit = false;
+              for (const asteroid of newAsteroids) {
+                  if (destroyedAsteroidIds.has(asteroid.id)) continue;
+                  
+                  const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
+                  if (distance < 15) { // Collision
+                      destroyedAsteroidIds.add(asteroid.id);
+                      bulletHit = true;
+                      setScore(s => s + 1);
+                      break; // a bullet can only hit one asteroid
+                  }
+              }
+              if (!bulletHit) {
+                  remainingBullets.push(bullet);
+              }
+          }
+          return remainingBullets;
+      });
 
-        setBullets(prevBullets => {
-            const remainingBullets = [];
-            for (const bullet of prevBullets) {
-                let bulletHit = false;
-                for (const asteroid of newAsteroids) {
-                    if (destroyedAsteroidIds.has(asteroid.id)) continue;
-                    
-                    const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
-                    if (distance < 15) { // Collision
-                        destroyedAsteroidIds.add(asteroid.id);
-                        bulletHit = true;
-                        setScore(s => s + 1);
-                        break; 
-                    }
-                }
-                if (!bulletHit) {
-                    remainingBullets.push(bullet);
-                }
-            }
-            return remainingBullets;
-        });
-
-        return newAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
-    });
+      return newAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
+  });
 
 
     // Move asteroids and check for hits
@@ -298,5 +297,3 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 };
 
 export default AsteroidDefenseMinigame;
-
-    
