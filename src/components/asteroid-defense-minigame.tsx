@@ -128,33 +128,41 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 
     // Collision detection
     setAsteroids(prevAsteroids => {
-      const newAsteroids = [...prevAsteroids];
+      let newAsteroids = [...prevAsteroids];
       const destroyedAsteroidIds = new Set<number>();
       
       setBullets(prevBullets => {
-          const remainingBullets = [];
-          for (const bullet of prevBullets) {
-              let bulletHit = false;
-              for (const asteroid of newAsteroids) {
-                  if (destroyedAsteroidIds.has(asteroid.id)) continue;
-                  
-                  const distance = Math.hypot(bullet.x - (asteroid.x + 10), bullet.y - (asteroid.y + 10));
-                  if (distance < 15) { // Collision
-                      destroyedAsteroidIds.add(asteroid.id);
-                      bulletHit = true;
-                      setScore(s => s + 1);
-                      break; // a bullet can only hit one asteroid
-                  }
-              }
-              if (!bulletHit) {
-                  remainingBullets.push(bullet);
-              }
-          }
-          return remainingBullets;
+        const remainingBullets = [];
+        for (const bullet of prevBullets) {
+            let bulletHit = false;
+            for (const asteroid of newAsteroids) {
+                if (destroyedAsteroidIds.has(asteroid.id)) continue;
+                
+                // Bounding box collision check
+                const bulletRect = { x: bullet.x, y: bullet.y, width: 4, height: 10 };
+                const asteroidRect = { x: asteroid.x, y: asteroid.y, width: 20, height: 20 };
+
+                if (
+                    bulletRect.x < asteroidRect.x + asteroidRect.width &&
+                    bulletRect.x + bulletRect.width > asteroidRect.x &&
+                    bulletRect.y < asteroidRect.y + asteroidRect.height &&
+                    bulletRect.y + bulletRect.height > asteroidRect.y
+                ) {
+                    destroyedAsteroidIds.add(asteroid.id);
+                    bulletHit = true;
+                    setScore(s => s + 1);
+                    break; // a bullet can only hit one asteroid
+                }
+            }
+            if (!bulletHit) {
+                remainingBullets.push(bullet);
+            }
+        }
+        return remainingBullets;
       });
 
       return newAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
-  });
+    });
 
 
     // Move asteroids and check for hits
