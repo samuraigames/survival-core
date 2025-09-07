@@ -11,7 +11,7 @@ interface GameOverScreenProps {
   customMessage?: string;
 }
 
-const GameOverScreen = ({ score, onRestart, won }: GameOverScreenProps) => {
+const GameOverScreen = ({ score, onRestart, won, customMessage }: GameOverScreenProps) => {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background text-foreground p-8">
       <motion.div

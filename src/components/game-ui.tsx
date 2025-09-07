@@ -359,8 +359,8 @@ export default function GameUI() {
     return <StartScreen onStart={handleStartGame} />;
   }
   
-  if (gameState === 'game-over' && gameWon) {
-    return <GameOverScreen score={score} onRestart={handleStartGame} won={true} />;
+  if (gameState === 'game-over') {
+    return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} customMessage={gameWon ? undefined : "You were lost to the void."}/>;
   }
   
   const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean, manualClose: boolean) => {
@@ -636,8 +636,11 @@ export default function GameUI() {
 
             {/* Player */}
             <motion.div
-                className="absolute flex items-center justify-center rounded-full bg-white z-10"
-                animate={{ x: playerPosition.x, y: playerPosition.y }}
+                className="absolute flex items-center justify-center rounded-full bg-accent z-10"
+                animate={{ 
+                    x: playerPosition.x, 
+                    y: playerPosition.y 
+                }}
                 transition={{ type: "spring", stiffness: 700, damping: 35, duration: 0.1 }}
                 style={{
                     width: PLAYER_SIZE,
@@ -649,7 +652,7 @@ export default function GameUI() {
                 }}
                 >
                 <div 
-                    className="w-4/5 h-2/5 bg-gray-400 rounded-full"
+                    className="w-4/5 h-2/5 bg-accent-foreground/50 rounded-full"
                     style={{
                     boxShadow: 'inset 0 0 5px rgba(0,0,0,0.4)',
                     }}
