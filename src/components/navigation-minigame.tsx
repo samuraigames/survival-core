@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 
 interface NavigationMinigameProps {
   open: boolean;
-  onClose: (success: boolean) => void;
+  onClose: (success: boolean, manualClose: boolean) => void;
   difficulty: number;
 }
 
@@ -22,10 +22,18 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   const [progress, setProgress] = useState(0);
   const [gameOver, setGameOver] = useState<boolean | null>(null);
   const [pathYOffset, setPathYOffset] = useState(0); // For vertical path shifting
+  const [isClosing, setIsClosing] = useState(false);
   
   const gameLoopRef = useRef<number>();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const lastShiftTimeRef = useRef(0);
+
+  const handleClose = useCallback((success: boolean, manual: boolean) => {
+    if (isClosing) return;
+    setIsClosing(true);
+    if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+    onClose(success, manual);
+  }, [isClosing, onClose]);
 
   const generatePath = useCallback(() => {
     const newPath = [];
@@ -48,6 +56,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
       setProgress(0);
       setGameOver(null);
       setPathYOffset(0);
+      setIsClosing(false);
       lastShiftTimeRef.current = Date.now();
       keysPressed.current = {};
     } else {
@@ -76,7 +85,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
         const newProgress = p + progressSpeed;
         if (newProgress >= PATH_LENGTH) {
             setGameOver(true);
-            setTimeout(() => onClose(true), 1000);
+            setTimeout(() => handleClose(true, false), 1000);
         }
         return newProgress;
     });
@@ -98,12 +107,12 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
         const upperBound = currentPathY + PATH_WIDTH / 2;
         if (shipY < lowerBound || shipY > upperBound) {
             setGameOver(false);
-            setTimeout(() => onClose(false), 1000);
+            setTimeout(() => handleClose(false, false), 1000);
         }
     }
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, onClose, path, progress, shipY, pathYOffset, difficulty]);
+  }, [gameOver, handleClose, path, progress, shipY, pathYOffset, difficulty]);
 
   useEffect(() => {
     if (open && gameOver === null) {
@@ -145,7 +154,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(gameOver ?? false) }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(gameOver ?? false, true); }}>
       <DialogContent className="max-w-xl bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Navigation Correction</DialogTitle>

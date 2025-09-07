@@ -8,9 +8,10 @@ interface GameOverScreenProps {
   score: number;
   onRestart: () => void;
   won: boolean;
+  customMessage?: string;
 }
 
-const GameOverScreen = ({ score, onRestart, won }: GameOverScreenProps) => {
+const GameOverScreen = ({ score, onRestart, won, customMessage }: GameOverScreenProps) => {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background text-foreground p-8">
       <motion.div
@@ -37,8 +38,13 @@ const GameOverScreen = ({ score, onRestart, won }: GameOverScreenProps) => {
               GAME OVER
             </h1>
             <p className="mt-4 text-xl md:text-2xl text-muted-foreground font-body max-w-2xl mx-auto">
-              Your final score was: <span className="text-accent font-bold">{score}</span>
+              {customMessage || `Your final score was: ${score}`}
             </p>
+             {customMessage && (
+              <p className="mt-2 text-lg text-muted-foreground font-body max-w-2xl mx-auto">
+                 Final Score: <span className="text-accent font-bold">{score}</span>
+              </p>
+             )}
             <p className="mt-2 text-lg text-muted-foreground font-body max-w-2xl mx-auto">
               The void is unforgiving.
             </p>

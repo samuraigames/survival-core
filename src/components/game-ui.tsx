@@ -12,7 +12,7 @@ import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import Joystick from './joystick';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Engine } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -28,6 +28,7 @@ const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
 const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
 const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
+const ENGINE_OVERLOAD_SECONDS = 10 * 60; // 10 minutes to lose
 
 const ZONES = {
   NAV_CONSOLE: { x: SHIP_WIDTH / 4, y: 150, name: "Navigation" },
@@ -47,7 +48,9 @@ export default function GameUI() {
   const [shipHits, setShipHits] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
   const [gameTime, setGameTime] = useState(0);
+  const [engineTime, setEngineTime] = useState(ENGINE_OVERLOAD_SECONDS);
   const [gameWon, setGameWon] = useState(false);
+  const [gameOverMessage, setGameOverMessage] = useState("");
   const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
   const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
   const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false);
@@ -58,34 +61,63 @@ export default function GameUI() {
   const gameTimerRef = useRef<NodeJS.Timeout>();
   const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
 
+  // Handle game scaling
+  useEffect(() => {
+    const handleResize = () => {
+      if (wrapperRef.current && contentRef.current) {
+        const screenWidth = wrapperRef.current.clientWidth;
+        const screenHeight = wrapperRef.current.clientHeight;
+        const scale = Math.min(screenWidth / TOTAL_WIDTH, screenHeight / TOTAL_HEIGHT);
+        contentRef.current.style.transform = `scale(${scale})`;
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleGameOver = useCallback((message: string) => {
+    setGameOverMessage(message);
+    setGameState('game-over');
+  }, [setGameState]);
+
   const takeHit = useCallback(() => {
     setIsShaking(true);
     setShipHits(h => h + 1);
+    setEngineTime(t => t - 2);
     setTimeout(() => setIsShaking(false), 500);
   }, []);
 
   useEffect(() => {
     if (shipHits >= 10 && gameState === 'playing') {
-      setGameState('game-over');
+      handleGameOver("The ship's hull has been breached!");
     }
-  }, [shipHits, gameState, setGameState]);
+  }, [shipHits, gameState, handleGameOver]);
   
+  useEffect(() => {
+    if (engineTime <= 0 && gameState === 'playing') {
+      handleGameOver("The engine has overloaded!");
+    }
+  }, [engineTime, gameState, handleGameOver]);
+
   const triggerInteraction = useCallback(() => {
     if (!isGameActive || !interaction || activeMinigame) return;
 
-    if (interaction?.zone === 'NAV_CONSOLE') {
+    if (interaction.zone === 'NAV_CONSOLE' && isNavCourseDeviating) {
       setActiveMinigame('navigation');
-    } else if (interaction?.zone === 'DEFENSE_CONSOLE') {
+    } else if (interaction.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) {
       setActiveMinigame('defense');
-    } else if (interaction?.zone === 'LIFE_SUPPORT') {
+    } else if (interaction.zone === 'LIFE_SUPPORT' && isLifeSupportFailing) {
       setActiveMinigame('life-support');
     }
-  }, [isGameActive, interaction, activeMinigame]);
+  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isUnderAsteroidAttack, isLifeSupportFailing]);
 
   // Passive damage from unattended crises
   useEffect(() => {
@@ -143,22 +175,23 @@ export default function GameUI() {
 
       if (distance < INTERACTION_DISTANCE) {
           if (zoneKey === 'DEFENSE_CONSOLE') {
-              closestZone = {
-                prompt: isUnderAsteroidAttack ? `Press [E] to ACTIVATE DEFENSES!` : `Press [E] to use ${zone.name}`,
-                zone: 'DEFENSE_CONSOLE'
-              };
+            if (isUnderAsteroidAttack) {
+              closestZone = { prompt: `Press [E] to ACTIVATE DEFENSES!`, zone: 'DEFENSE_CONSOLE'};
+            } else {
+              closestZone = { prompt: `Defenses Online`, zone: 'DEFENSE_CONSOLE'};
+            }
           } else if (zoneKey === 'NAV_CONSOLE') {
-              closestZone = {
-                prompt: isNavCourseDeviating ? 'Press [E] to CORRECT COURSE!' : `Press [E] to use ${zone.name}`,
-                zone: 'NAV_CONSOLE'
-              };
+            if (isNavCourseDeviating) {
+              closestZone = { prompt: 'Press [E] to CORRECT COURSE!', zone: 'NAV_CONSOLE'};
+            } else {
+              closestZone = { prompt: 'Awaiting Coordinates', zone: 'NAV_CONSOLE'};
+            }
           } else if (zoneKey === 'LIFE_SUPPORT') {
-            closestZone = {
-              prompt: isLifeSupportFailing ? 'Press [E] to RESTORE LIFE SUPPORT!' : `Press [E] to use ${zone.name}`,
-              zone: 'LIFE_SUPPORT'
-            };
-          } else {
-               closestZone = { prompt: `Press [E] to use ${zone.name}`, zone: zoneKey as keyof typeof ZONES };
+            if (isLifeSupportFailing) {
+              closestZone = { prompt: 'Press [E] to RESTORE LIFE SUPPORT!', zone: 'LIFE_SUPPORT'};
+            } else {
+              closestZone = { prompt: 'Systems Stable', zone: 'LIFE_SUPPORT'};
+            }
           }
           break; 
       }
@@ -206,6 +239,7 @@ export default function GameUI() {
     if (isGameActive) {
       gameTimerRef.current = setInterval(() => {
         setGameTime(t => t + 1);
+        setEngineTime(t => t - 1);
       }, 1000);
     } else {
         if(gameTimerRef.current) clearInterval(gameTimerRef.current);
@@ -241,11 +275,13 @@ export default function GameUI() {
     setGameState('playing');
     setShipHits(0);
     setGameTime(0);
+    setEngineTime(ENGINE_OVERLOAD_SECONDS);
     setGameWon(false);
     setIsPaused(false);
     setIsUnderAsteroidAttack(false);
     setIsNavCourseDeviating(false);
     setIsLifeSupportFailing(false);
+    setGameOverMessage("");
     
     if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
@@ -259,10 +295,10 @@ export default function GameUI() {
   }
   
   if (gameState === 'game-over') {
-    return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} />;
+    return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} customMessage={gameOverMessage} />;
   }
   
-  const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean) => {
+  const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean, manualClose: boolean) => {
     setActiveMinigame(null);
 
     if (passiveDamageTimerRef.current) {
@@ -280,7 +316,7 @@ export default function GameUI() {
 
         setEventIntensity(e => Math.min(10, e + 0.5));
 
-    } else {
+    } else if (!manualClose) {
         takeHit();
         setEventIntensity(e => Math.max(1, e - 1));
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive' });
@@ -307,14 +343,17 @@ export default function GameUI() {
   const alertMessage = getAlertMessage();
   const shipIntegrityPercentage = 100 - shipHits * 10;
   const journeyProgressPercentage = (gameTime / WIN_TIME_SECONDS) * 100;
+  const engineTimePercentage = (engineTime / ENGINE_OVERLOAD_SECONDS) * 100;
   const interactionText = interaction?.prompt.replace('Press [E] to ', '');
 
   return (
-    <div className="w-full h-full p-4 box-border flex items-center justify-center">
+    <div ref={wrapperRef} className="w-full h-full p-4 box-border flex items-center justify-center bg-black">
       <motion.div
-        className="w-full max-w-full max-h-full bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40"
+        ref={contentRef}
+        className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-top-left"
         style={{
-          aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
+          width: TOTAL_WIDTH,
+          height: TOTAL_HEIGHT,
         }}
         animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
         transition={{ duration: 0.5 }}
@@ -325,11 +364,13 @@ export default function GameUI() {
           style={{ height: HUD_HEIGHT }}
         >
           <div className="p-2 flex flex-col justify-between h-full">
-            {/* Top Row: Journey Progress */}
-            <div className="flex items-center gap-2 w-full">
-              <Rocket className="w-6 h-6 text-accent" />
-              <Progress value={journeyProgressPercentage} className="w-full h-3" />
-              <Globe className="w-6 h-6 text-green-400" />
+            {/* Top Row: Journey & Engine Progress */}
+            <div className="flex items-center gap-4 w-full">
+              <Rocket className="w-5 h-5 text-accent" />
+              <Progress value={journeyProgressPercentage} className="w-full h-2" />
+              <Globe className="w-5 h-5 text-green-400" />
+              <Engine className="w-5 h-5 text-destructive" />
+              <Progress value={engineTimePercentage} className="w-full h-2 bg-destructive/30 [&>*]:bg-destructive" />
             </div>
 
             {/* Bottom Row: Controls, Status, and Alerts */}
@@ -346,15 +387,15 @@ export default function GameUI() {
                     {isPaused ? 'Resume' : 'Pause'}
                   </span>
                 </Button>
-                <div>
+                <div className="flex items-center gap-4">
                   <Badge
                     variant="outline"
                     className="text-lg py-1 px-4 border-accent"
                   >
                     Score: {score}
                   </Badge>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Shield className="h-4 w-4 text-cyan-400" />
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-cyan-400" />
                     <Progress value={shipIntegrityPercentage} className="w-32 h-2" />
                   </div>
                 </div>
@@ -529,7 +570,7 @@ export default function GameUI() {
                 <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center">
                   <HeartPulse
                     className={`w-12 h-12 transition-colors ${
-                      isLifeSupportFailing ? 'text-red-500' : 'text-green-500'
+                      isLifeSupportFailing ? 'text-red-500 animate-pulse' : 'text-green-500'
                     }`}
                   />
                 </div>
@@ -572,23 +613,21 @@ export default function GameUI() {
 
         <NavigationMinigame
           open={activeMinigame === 'navigation'}
-          onClose={(success) => onMinigameClose('navigation', success)}
+          onClose={(success, manual) => onMinigameClose('navigation', success, manual)}
           difficulty={eventIntensity}
         />
         <AsteroidDefenseMinigame
           open={activeMinigame === 'defense'}
-          onClose={(success) => onMinigameClose('defense', success)}
+          onClose={(success) => onMinigameClose('defense', success, false)}
           difficulty={eventIntensity}
           isUnderAttack={isUnderAsteroidAttack}
         />
         <LifeSupportMinigame
           open={activeMinigame === 'life-support'}
-          onClose={(success) => onMinigameClose('life-support', success)}
+          onClose={(success, manual) => onMinigameClose('life-support', success, manual)}
           difficulty={eventIntensity}
         />
       </motion.div>
     </div>
   );
 }
-
-    

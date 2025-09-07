@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 
 interface LifeSupportMinigameProps {
   open: boolean;
-  onClose: (success: boolean) => void;
+  onClose: (success: boolean, manualClose: boolean) => void;
   difficulty: number;
 }
 
@@ -19,6 +19,7 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
   const [progress, setProgress] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT_MS);
   const [isComplete, setIsComplete] = useState<boolean | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   const overallTimerRef = useRef<NodeJS.Timeout>();
   const progressIntervalRef = useRef<NodeJS.Timeout>();
@@ -26,10 +27,19 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
   const timeLimit = TIME_LIMIT_MS - (difficulty * 300);
   const holdDuration = HOLD_DURATION_MS - (difficulty * 100);
 
+  const handleClose = useCallback((success: boolean, manual: boolean) => {
+      if (isClosing) return;
+      setIsClosing(true);
+      if (overallTimerRef.current) clearInterval(overallTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      onClose(success, manual);
+  }, [isClosing, onClose]);
+
   const resetGame = useCallback(() => {
     setProgress(0);
     setTimeLeft(timeLimit);
     setIsComplete(null);
+    setIsClosing(false);
   }, [timeLimit]);
 
   // Handle game reset when dialog opens/closes
@@ -52,7 +62,7 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
             clearInterval(overallTimerRef.current!);
             if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
             setIsComplete(false);
-            setTimeout(() => onClose(false), 1500);
+            setTimeout(() => handleClose(false, false), 1500);
             return 0;
           }
           return newTime;
@@ -62,7 +72,7 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
     return () => {
       if (overallTimerRef.current) clearInterval(overallTimerRef.current);
     };
-  }, [open, isComplete, onClose]);
+  }, [open, isComplete, handleClose]);
   
   // Handle progress state changes
   useEffect(() => {
@@ -70,9 +80,9 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
       if (overallTimerRef.current) clearInterval(overallTimerRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setIsComplete(true);
-      setTimeout(() => onClose(true), 1500);
+      setTimeout(() => handleClose(true, false), 1500);
     }
-  }, [progress, isComplete, onClose]);
+  }, [progress, isComplete, handleClose]);
 
   const handleMouseDown = () => {
     if (isComplete !== null) return;
@@ -92,7 +102,7 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
   const timePercentage = (timeLeft / timeLimit) * 100;
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(isComplete ?? false); }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(isComplete ?? false, true); }}>
       <DialogContent className="max-w-md bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Life Support Calibration</DialogTitle>
@@ -107,6 +117,8 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
             <Button 
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
+                onTouchStart={handleMouseDown}
+                onTouchEnd={handleMouseUp}
                 onMouseLeave={handleMouseUp} // Stop if mouse leaves button area while pressed
                 disabled={isComplete !== null}
                 className="w-40 h-20 text-xl font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg transform active:scale-95 transition-transform"
