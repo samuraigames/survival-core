@@ -358,14 +358,16 @@ export default function GameUI() {
         {/* HUD */}
         <div className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20" style={{ height: HUD_HEIGHT, width: SHIP_WIDTH}}>
             <div className="p-2 flex flex-col justify-between h-full">
-              {/* Journey Progress */}
+              {/* Top Row: Journey Progress */}
               <div className="flex items-center gap-2 w-full">
                 <Rocket className="w-6 h-6 text-accent" />
                 <Progress value={journeyProgressPercentage} className="w-full h-3" />
                 <Globe className="w-6 h-6 text-green-400" />
               </div>
 
+              {/* Bottom Row: Controls, Status, and Alerts */}
               <div className="flex justify-between items-center">
+                {/* Left Section: Pause & Status */}
                 <div className='flex items-center gap-4'>
                     <Button variant="outline" size="icon" onClick={() => setIsPaused(!isPaused)}>
                         {isPaused ? <Play /> : <Pause />}
@@ -380,6 +382,7 @@ export default function GameUI() {
                     </div>
                 </div>
 
+                {/* Center Section: Alerts */}
                 <div className="flex flex-col items-center gap-1">
                     <AnimatePresence>
                     {alertMessage && (
@@ -397,6 +400,7 @@ export default function GameUI() {
                     </AnimatePresence>
                 </div>
                 
+                {/* Right Section: Controls */}
                 {!isMobile && (
                   <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
                     <Gamepad2 className="w-5 h-5 text-accent"/>
