@@ -359,7 +359,7 @@ export default function GameUI() {
     return <StartScreen onStart={handleStartGame} />;
   }
   
-  if (gameState === 'game-over') {
+  if (gameState === 'game-over' && gameWon) {
     return <GameOverScreen score={score} onRestart={handleStartGame} won={gameWon} customMessage={gameWon ? undefined : "You were lost to the void."}/>;
   }
   
@@ -417,7 +417,6 @@ export default function GameUI() {
       style={{
         width: TOTAL_WIDTH,
         height: TOTAL_HEIGHT,
-        aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
         maxWidth: '100%',
         maxHeight: '100%',
       }}
