@@ -37,7 +37,7 @@ const StartScreen = ({ onStart }: StartScreenProps) => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="mt-12 mb-10" // Added margin top and bottom for spacing
+          className="my-10"
         >
           <Button
             onClick={onStart}
