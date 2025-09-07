@@ -12,39 +12,45 @@ interface LifeSupportMinigameProps {
   difficulty: number;
 }
 
-const CLICKS_TO_WIN = 15;
-const TIME_LIMIT_MS = 5000;
+const HOLD_DURATION_MS = 2500; // Time required to hold the button
+const TIME_LIMIT_MS = 8000; // Overall time limit for the minigame
 
 const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose, difficulty }) => {
-  const [clicks, setClicks] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT_MS);
   const [isComplete, setIsComplete] = useState<boolean | null>(null);
 
-  const timerRef = useRef<NodeJS.Timeout>();
+  const overallTimerRef = useRef<NodeJS.Timeout>();
+  const progressIntervalRef = useRef<NodeJS.Timeout>();
 
-  const timeLimit = TIME_LIMIT_MS - (difficulty * 200);
+  const timeLimit = TIME_LIMIT_MS - (difficulty * 300);
+  const holdDuration = HOLD_DURATION_MS - (difficulty * 100);
 
   const resetGame = useCallback(() => {
-    setClicks(0);
+    setProgress(0);
     setTimeLeft(timeLimit);
     setIsComplete(null);
   }, [timeLimit]);
 
+  // Handle game reset when dialog opens/closes
   useEffect(() => {
     if (open) {
       resetGame();
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (overallTimerRef.current) clearInterval(overallTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     }
   }, [open, resetGame]);
 
+  // Main timer for the minigame
   useEffect(() => {
     if (open && isComplete === null) {
-      timerRef.current = setInterval(() => {
+      overallTimerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           const newTime = prev - 100;
           if (newTime <= 0) {
-            clearInterval(timerRef.current!);
+            clearInterval(overallTimerRef.current!);
+            if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
             setIsComplete(false);
             setTimeout(() => onClose(false), 1500);
             return 0;
@@ -54,26 +60,35 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
       }, 100);
     }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (overallTimerRef.current) clearInterval(overallTimerRef.current);
     };
   }, [open, isComplete, onClose]);
+  
+  // Handle progress state changes
+  useEffect(() => {
+    if (progress >= 100 && isComplete === null) {
+      if (overallTimerRef.current) clearInterval(overallTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      setIsComplete(true);
+      setTimeout(() => onClose(true), 1500);
+    }
+  }, [progress, isComplete, onClose]);
 
-  const handleClick = () => {
+  const handleMouseDown = () => {
     if (isComplete !== null) return;
-
-    setClicks(prev => {
-      const newClicks = prev + 1;
-      if (newClicks >= CLICKS_TO_WIN) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setIsComplete(true);
-        setTimeout(() => onClose(true), 1500);
-        return CLICKS_TO_WIN;
-      }
-      return newClicks;
-    });
+    
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    
+    progressIntervalRef.current = setInterval(() => {
+      setProgress(p => p + (100 / (holdDuration / 100))); // Increment to reach 100 in `holdDuration`
+    }, 100);
   };
   
-  const progressPercentage = (clicks / CLICKS_TO_WIN) * 100;
+  const handleMouseUp = () => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+  };
+
+  const progressPercentage = Math.min(100, progress);
   const timePercentage = (timeLeft / timeLimit) * 100;
 
   return (
@@ -81,7 +96,7 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
       <DialogContent className="max-w-md bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Life Support Calibration</DialogTitle>
-          <DialogDescription>Atmospheric regulators are offline! Rapidly press the button to re-calibrate the system before oxygen levels become critical.</DialogDescription>
+          <DialogDescription>Atmospheric regulators are offline! Press and HOLD the button to re-calibrate the system before oxygen levels become critical.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-4">
             <div className="w-full text-center">
@@ -90,7 +105,9 @@ const LifeSupportMinigame: React.FC<LifeSupportMinigameProps> = ({ open, onClose
             </div>
 
             <Button 
-                onClick={handleClick}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp} // Stop if mouse leaves button area while pressed
                 disabled={isComplete !== null}
                 className="w-40 h-20 text-xl font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg transform active:scale-95 transition-transform"
             >
