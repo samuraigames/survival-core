@@ -12,7 +12,7 @@ import StartScreen from './start-screen';
 import GameOverScreen from './game-over-screen';
 import Joystick from './joystick';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Engine } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -62,26 +62,10 @@ export default function GameUI() {
   const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   const isGameActive = gameState === 'playing' && !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
-
-  // Handle game scaling
-  useEffect(() => {
-    const handleResize = () => {
-      if (wrapperRef.current && contentRef.current) {
-        const screenWidth = wrapperRef.current.clientWidth;
-        const screenHeight = wrapperRef.current.clientHeight;
-        const scale = Math.min(screenWidth / TOTAL_WIDTH, screenHeight / TOTAL_HEIGHT);
-        contentRef.current.style.transform = `scale(${scale})`;
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const handleGameOver = useCallback((message: string) => {
     setGameOverMessage(message);
@@ -348,16 +332,21 @@ export default function GameUI() {
 
   return (
     <div ref={wrapperRef} className="w-full h-full p-4 box-border flex items-center justify-center bg-black">
-      <motion.div
-        ref={contentRef}
-        className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-top-left"
+      <div
+        className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center"
         style={{
           width: TOTAL_WIDTH,
           height: TOTAL_HEIGHT,
+          aspectRatio: `${TOTAL_WIDTH} / ${TOTAL_HEIGHT}`,
+          maxWidth: '100%',
+          maxHeight: '100%',
         }}
-        animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
-        transition={{ duration: 0.5 }}
       >
+        <motion.div
+            className="w-full h-full flex flex-col"
+            animate={{ x: isShaking ? [-5, 5, -5, 5, -2, 2, 0] : 0 }}
+            transition={{ duration: 0.5 }}
+        >
         {/* HUD */}
         <div
           className="w-full bg-background/80 border-b-2 border-primary-foreground/20 backdrop-blur-sm z-20"
@@ -369,7 +358,7 @@ export default function GameUI() {
               <Rocket className="w-5 h-5 text-accent" />
               <Progress value={journeyProgressPercentage} className="w-full h-2" />
               <Globe className="w-5 h-5 text-green-400" />
-              <Engine className="w-5 h-5 text-destructive" />
+              <Fan className="w-5 h-5 text-destructive" />
               <Progress value={engineTimePercentage} className="w-full h-2 bg-destructive/30 [&>*]:bg-destructive" />
             </div>
 
@@ -610,6 +599,8 @@ export default function GameUI() {
             </div>
           )}
         </div>
+        </motion.div>
+      </div>
 
         <NavigationMinigame
           open={activeMinigame === 'navigation'}
@@ -627,7 +618,6 @@ export default function GameUI() {
           onClose={(success, manual) => onMinigameClose('life-support', success, manual)}
           difficulty={eventIntensity}
         />
-      </motion.div>
     </div>
   );
 }
