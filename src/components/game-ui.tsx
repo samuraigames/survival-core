@@ -79,6 +79,13 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     playerPosition
   } = gameState;
 
+  // Track previous crisis states to show toast only on change
+  const prevCrisisState = useRef({
+    isUnderAsteroidAttack,
+    isNavCourseDeviating,
+    isLifeSupportFailing,
+  });
+
 
   const isGameActive = !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
@@ -207,7 +214,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             }
           } else if (zoneKey === 'LIFE_SUPPORT') {
             if (isLifeSupportFailing) {
-              closestZone = { prompt: 'Press [E_ to RESTORE LIFE SUPPORT!', zone: 'LIFE_SUPPORT'};
+              closestZone = { prompt: 'Press [E] to RESTORE LIFE SUPPORT!', zone: 'LIFE_SUPPORT'};
             } else {
               closestZone = { prompt: 'Systems Stable', zone: 'LIFE_SUPPORT'};
             }
@@ -223,8 +230,6 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   }, [playerPosition, isGameActive, interaction, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing]);
 
   const triggerRandomEvent = useCallback(() => {
-    if (!isGameActive) return;
-    
     handleStateUpdate(prevState => {
       // Check for crisis inside the updater to get the freshest state
       if (prevState.isUnderAsteroidAttack || prevState.isNavCourseDeviating || prevState.isLifeSupportFailing) {
@@ -233,28 +238,39 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       
       const eventType = Math.random();
       let newState = {...prevState};
-      let toastTitle = "";
-      let toastDescription = "";
 
       if (eventType < 0.33) {
         newState.isNavCourseDeviating = true;
-        toastTitle = "Alert!";
-        toastDescription = "Course deviation detected! Get to the navigation console!";
       } else if (eventType < 0.66) {
         newState.isUnderAsteroidAttack = true;
-        toastTitle = "INCOMING!";
-        toastDescription = "Asteroid field detected! Get to the defense console!";
       } else {
         newState.isLifeSupportFailing = true;
-        toastTitle = "Warning!";
-        toastDescription = "Life support systems are failing!";
       }
-
-      toast({ title: toastTitle, description: toastDescription, variant: 'destructive' });
       return newState;
     });
 
-  }, [isGameActive, toast, handleStateUpdate]);
+  }, [handleStateUpdate]);
+
+  // Effect to show toast notifications when a crisis starts
+  useEffect(() => {
+    if (isUnderAsteroidAttack && !prevCrisisState.current.isUnderAsteroidAttack) {
+      toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
+    }
+    if (isNavCourseDeviating && !prevCrisisState.current.isNavCourseDeviating) {
+      toast({ title: "Alert!", description: "Course deviation detected! Get to the navigation console!", variant: 'destructive' });
+    }
+    if (isLifeSupportFailing && !prevCrisisState.current.isLifeSupportFailing) {
+      toast({ title: "Warning!", description: "Life support systems are failing!", variant: 'destructive' });
+    }
+    
+    // Update previous state ref
+    prevCrisisState.current = {
+      isUnderAsteroidAttack,
+      isNavCourseDeviating,
+      isLifeSupportFailing,
+    };
+  }, [isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing, toast]);
+
 
   // Main Event Scheduling Loop
   useEffect(() => {
@@ -298,14 +314,17 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     // Start first event quickly if it's a new game
     if (isInitialMount.current && initialState.gameTime < 5) {
       const timeoutId = setTimeout(triggerRandomEvent, 5000);
+      isInitialMount.current = false;
       return () => clearTimeout(timeoutId);
     }
     
   }, [triggerRandomEvent, initialState.gameTime]);
   
-  // Set isInitialMount to false after first render
+  // Set isInitialMount to false after first render, if not already done
   useEffect(() => {
-    isInitialMount.current = false;
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+    }
   }, []);
   
    // Keyboard input listeners
