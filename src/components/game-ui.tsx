@@ -83,15 +83,11 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   const isGameActive = !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
-
-  const updateState = (newState: Partial<GameState>) => {
-    setGameState(prevState => ({ ...prevState, ...newState }));
-  };
   
   // This is a stable function to update state that can be used in callbacks
-  const handleStateUpdate = (updater: (prevState: GameState) => GameState) => {
+  const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
-  };
+  }, []);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -101,7 +97,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       engineTime: Math.max(0, prevState.engineTime - 2)
     }));
     setTimeout(() => setIsShaking(false), 500);
-  }, []);
+  }, [handleStateUpdate]);
   
   useEffect(() => {
     if (isInitialMount.current) return;
@@ -227,28 +223,38 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   }, [playerPosition, isGameActive, interaction, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing]);
 
   const triggerRandomEvent = useCallback(() => {
-    if (!isGameActive || isCrisisActive) return;
-
-    const eventType = Math.random();
+    if (!isGameActive) return;
     
     handleStateUpdate(prevState => {
-      if (prevState.isUnderAsteroidAttack || prevState.isNavCourseDeviating || prevState.isLifeSupportFailing) return prevState;
+      // Check for crisis inside the updater to get the freshest state
+      if (prevState.isUnderAsteroidAttack || prevState.isNavCourseDeviating || prevState.isLifeSupportFailing) {
+        return prevState;
+      }
       
+      const eventType = Math.random();
       let newState = {...prevState};
+      let toastTitle = "";
+      let toastDescription = "";
+
       if (eventType < 0.33) {
         newState.isNavCourseDeviating = true;
-        toast({ title: "Alert!", description: "Course deviation detected! Get to the navigation console!", variant: "destructive" });
+        toastTitle = "Alert!";
+        toastDescription = "Course deviation detected! Get to the navigation console!";
       } else if (eventType < 0.66) {
         newState.isUnderAsteroidAttack = true;
-        toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
+        toastTitle = "INCOMING!";
+        toastDescription = "Asteroid field detected! Get to the defense console!";
       } else {
         newState.isLifeSupportFailing = true;
-        toast({ title: "Warning!", description: "Life support systems are failing!", variant: 'destructive' });
+        toastTitle = "Warning!";
+        toastDescription = "Life support systems are failing!";
       }
+
+      toast({ title: toastTitle, description: toastDescription, variant: 'destructive' });
       return newState;
     });
 
-  }, [isGameActive, toast, isCrisisActive]);
+  }, [isGameActive, toast, handleStateUpdate]);
 
   // Main Event Scheduling Loop
   useEffect(() => {
@@ -283,20 +289,24 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
         clearInterval(gameTimerRef.current);
       }
     };
-  }, [isGameActive]);
+  }, [isGameActive, handleStateUpdate]);
   
    // Initial setup
   useEffect(() => {
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
 
     // Start first event quickly if it's a new game
-    if (initialState.gameTime < 5) {
-      setTimeout(triggerRandomEvent, 5000); 
+    if (isInitialMount.current && initialState.gameTime < 5) {
+      const timeoutId = setTimeout(triggerRandomEvent, 5000);
+      return () => clearTimeout(timeoutId);
     }
-
-    // Set initial mount to false after the first render.
-    isInitialMount.current = false;
+    
   }, [triggerRandomEvent, initialState.gameTime]);
+  
+  // Set isInitialMount to false after first render
+  useEffect(() => {
+    isInitialMount.current = false;
+  }, []);
   
    // Keyboard input listeners
   useEffect(() => {
@@ -315,7 +325,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     };
   }, []);
 
-  // Game loop for smooth movement & camera
+  // Game loop for smooth movement
   const gameLoop = useCallback(() => {
     const isMovementPaused = !isGameActive || activeMinigame !== null;
     if (!isMovementPaused) {
@@ -324,32 +334,33 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
         const speed = 5;
   
         // Keyboard movement
-        if (keysPressed.current['w']) y -= speed;
-        if (keysPressed.current['s']) y += speed;
-        if (keysPressed.current['a']) x -= speed;
-        if (keysPressed.current['d']) x += speed;
+        let moved = false;
+        if (keysPressed.current['w']) { y -= speed; moved = true; }
+        if (keysPressed.current['s']) { y += speed; moved = true; }
+        if (keysPressed.current['a']) { x -= speed; moved = true; }
+        if (keysPressed.current['d']) { x += speed; moved = true; }
         
         // Joystick movement
         if (joystickVector.x !== 0 || joystickVector.y !== 0) {
             x += joystickVector.x * speed;
             y += joystickVector.y * speed;
+            moved = true;
         }
   
-        // Clamp position to world bounds
-        const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(x, WORLD_WIDTH - PLAYER_SIZE / 2));
-        const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(y, WORLD_HEIGHT - PLAYER_SIZE / 2));
-        
-        const newPos = { x: clampedX, y: clampedY };
-        
-        if (newPos.x !== prevState.playerPosition.x || newPos.y !== prevState.playerPosition.y) {
-            return { ...prevState, playerPosition: newPos };
+        if (moved) {
+          // Clamp position to world bounds
+          const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(x, WORLD_WIDTH - PLAYER_SIZE / 2));
+          const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(y, WORLD_HEIGHT - PLAYER_SIZE / 2));
+          
+          return { ...prevState, playerPosition: { x: clampedX, y: clampedY } };
         }
+        
         return prevState;
       });
     }
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [isGameActive, activeMinigame, joystickVector]);
+  }, [isGameActive, activeMinigame, joystickVector, handleStateUpdate]);
   
   useEffect(() => {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -732,5 +743,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
+
+    
 
     
