@@ -7,6 +7,7 @@ import NavigationMinigame from './navigation-minigame';
 import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import LifeSupportMinigame from './life-support-minigame';
 import Joystick from './joystick';
+import Starfield from './starfield';
 import { Badge } from './ui/badge';
 import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan } from 'lucide-react';
 import { motion, AnimatePresence, useAnimate } from 'framer-motion';
@@ -487,6 +488,7 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
         className="relative bg-card/50 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 overflow-hidden"
         style={{ width: SHIP_WIDTH, height: SHIP_HEIGHT }}
       >
+        <Starfield />
          <motion.div ref={scope} className="absolute top-0 left-0 bg-grid-pattern" style={{width: WORLD_WIDTH, height: WORLD_HEIGHT}}>
             {/* World Content */}
             <div className="absolute inset-0" style={{backgroundSize: '40px 40px'}}></div>
