@@ -3,10 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import { Rocket, Clock, Keyboard, ShieldAlert } from "lucide-react";
+import { Rocket, Clock, Keyboard, ShieldAlert, Play } from "lucide-react";
 
 interface StartScreenProps {
   onStart: () => void;
+  onNewGame: () => void;
+  isGameInProgress: boolean;
 }
 
 const Key = ({ children }: { children: React.ReactNode }) => (
@@ -15,7 +17,7 @@ const Key = ({ children }: { children: React.ReactNode }) => (
     </div>
 );
 
-const StartScreen = ({ onStart }: StartScreenProps) => {
+const StartScreen = ({ onStart, onNewGame, isGameInProgress }: StartScreenProps) => {
   return (
     <div className="w-full min-h-screen flex flex-col items-center justify-start bg-background text-foreground p-4 sm:p-8 overflow-y-auto">
       <div className="flex flex-col items-center justify-start w-full max-w-5xl text-center">
@@ -37,15 +39,26 @@ const StartScreen = ({ onStart }: StartScreenProps) => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="my-10"
+          className="my-10 flex flex-col sm:flex-row gap-4"
         >
+          {isGameInProgress && (
+            <Button
+              onClick={onStart}
+              size="lg"
+              variant="outline"
+              className="font-headline text-xl sm:text-2xl px-10 sm:px-12 py-6 sm:py-8 rounded-full shadow-lg transition-all duration-300"
+            >
+              <Play className="mr-4 h-6 w-6 sm:h-8 sm:w-8" />
+              CONTINUE
+            </Button>
+          )}
           <Button
-            onClick={onStart}
+            onClick={onNewGame}
             size="lg"
             className="font-headline text-xl sm:text-2xl px-10 sm:px-12 py-6 sm:py-8 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-lg shadow-accent/30 transition-all duration-300 hover:shadow-xl hover:shadow-accent/50"
           >
             <Rocket className="mr-4 h-6 w-6 sm:h-8 sm:w-8" />
-            BEGIN MISSION
+            {isGameInProgress ? 'NEW GAME' : 'BEGIN MISSION'}
           </Button>
         </motion.div>
 

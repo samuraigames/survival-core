@@ -9,7 +9,7 @@ import LifeSupportMinigame from './life-support-minigame';
 import Joystick from './joystick';
 import Starfield from './starfield';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan, Home } from 'lucide-react';
 import { motion, AnimatePresence, useAnimate } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -42,10 +42,11 @@ type ZoneName = keyof typeof ZONES | null;
 interface GameUIProps {
     onGameWin: (score: number) => void;
     onGameLose: (score: number, message: string) => void;
+    onReturnToMenu: () => void;
     initialScore: number;
 }
 
-export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIProps) {
+export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialScore }: GameUIProps) {
   const [score, setScore] = useState(initialScore);
   const [eventIntensity, setEventIntensity] = useState(1);
   const [playerPosition, setPlayerPosition] = useState({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
@@ -644,11 +645,15 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30"
             >
-                <div className="text-center">
-                <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
-                <Button className="mt-4" onClick={() => setIsPaused(false)}>
-                    Resume
-                </Button>
+                <div className="text-center flex flex-col gap-4">
+                  <h3 className="text-5xl font-bold text-accent">PAUSED</h3>
+                  <Button className="mt-4" onClick={() => setIsPaused(false)}>
+                      Resume
+                  </Button>
+                  <Button variant="outline" onClick={onReturnToMenu}>
+                    <Home className="mr-2 h-4 w-4" />
+                    Return to Menu
+                  </Button>
                 </div>
             </motion.div>
             )}
