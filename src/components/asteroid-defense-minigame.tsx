@@ -64,6 +64,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   const [gameOver, setGameOver] = useState(false);
   const [win, setWin] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [currentShipX, setCurrentShipX] = useState(GAME_WIDTH / 2 - SHIP_WIDTH / 2);
 
   const gameLoopRef = useRef<number>();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -81,6 +82,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     setAsteroids([]);
     setBullets([]);
     setShipX(GAME_WIDTH / 2 - SHIP_WIDTH / 2);
+    setCurrentShipX(GAME_WIDTH / 2 - SHIP_WIDTH / 2);
     setHits(0);
     setScore(0);
     setGameOver(false);
@@ -128,45 +130,49 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
       let newX = prevX;
       if (keysPressed.current['a'] || keysPressed.current['arrowleft']) newX -= speed;
       if (keysPressed.current['d'] || keysPressed.current['arrowright']) newX += speed;
-      return Math.max(0, Math.min(newX, GAME_WIDTH - SHIP_WIDTH));
+      const finalX = Math.max(0, Math.min(newX, GAME_WIDTH - SHIP_WIDTH));
+      setCurrentShipX(finalX);
+      return finalX;
     });
 
     // Move and update bullets
     setBullets(prevBullets => prevBullets.map(b => ({ ...b, y: b.y - 8 })).filter(b => b.y > -20));
 
     // Collision detection
-    setBullets(currentBullets => {
-        const newBullets = [...currentBullets];
-        const destroyedAsteroidIds = new Set<number>();
-        const usedBulletIds = new Set<number>();
+    setAsteroids(prevAsteroids => {
+      let newAsteroids = [...prevAsteroids];
+      const destroyedAsteroidIds = new Set<number>();
+      
+      setBullets(currentBullets => {
+        const unhitBullets = currentBullets.filter(bullet => {
+          for (const asteroid of newAsteroids) {
+            if (destroyedAsteroidIds.has(asteroid.id)) continue;
 
-        for (const bullet of newBullets) {
-            for (const asteroid of asteroids) {
-                if (destroyedAsteroidIds.has(asteroid.id) || usedBulletIds.has(bullet.id)) continue;
+            const bulletRect = { x: bullet.x, y: bullet.y, width: 4, height: 10 };
+            const asteroidRect = { x: asteroid.x, y: asteroid.y, width: 20, height: 20 };
 
-                const bulletRect = { x: bullet.x, y: bullet.y, width: 4, height: 10 };
-                const asteroidRect = { x: asteroid.x, y: asteroid.y, width: 20, height: 20 };
-
-                if (
-                    bulletRect.x < asteroidRect.x + asteroidRect.width &&
-                    bulletRect.x + bulletRect.width > asteroidRect.x &&
-                    bulletRect.y < asteroidRect.y + asteroidRect.height &&
-                    bulletRect.y + bulletRect.height > asteroidRect.y
-                ) {
-                    destroyedAsteroidIds.add(asteroid.id);
-                    usedBulletIds.add(bullet.id);
-                    setScore(s => s + 1);
-                    break; 
-                }
+            if (
+              bulletRect.x < asteroidRect.x + asteroidRect.width &&
+              bulletRect.x + bulletRect.width > asteroidRect.x &&
+              bulletRect.y < asteroidRect.y + asteroidRect.height &&
+              bulletRect.y + bulletRect.height > asteroidRect.y
+            ) {
+              destroyedAsteroidIds.add(asteroid.id);
+              setScore(s => s + 1);
+              return false; // Bullet is used up
             }
-        }
-        
-        if (destroyedAsteroidIds.size > 0) {
-            setAsteroids(prev => prev.filter(a => !destroyedAsteroidIds.has(a.id)));
-        }
+          }
+          return true; // Bullet did not hit anything
+        });
 
-        return newBullets.filter(b => !usedBulletIds.has(b.id));
+        if (destroyedAsteroidIds.size > 0) {
+            newAsteroids = newAsteroids.filter(a => !destroyedAsteroidIds.has(a.id));
+        }
+        return unhitBullets;
+      });
+      return newAsteroids;
     });
+
 
     // Move asteroids and check for hits
     setAsteroids(prevAsteroids => {
@@ -187,7 +193,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, win, handleClose, asteroids]);
+  }, [gameOver, win, handleClose]);
 
   // Check for win condition
   useEffect(() => {
@@ -205,7 +211,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
         e.preventDefault();
         if (e.key === ' ' || e.code === 'Space') {
             if (!gameOver && !win) {
-                setBullets(prev => [...prev, { id: Date.now() + Math.random(), x: shipX + SHIP_WIDTH / 2 - 2, y: GAME_HEIGHT - SHIP_HEIGHT }]);
+                setBullets(prev => [...prev, { id: Date.now() + Math.random(), x: currentShipX + SHIP_WIDTH / 2 - 2, y: GAME_HEIGHT - SHIP_HEIGHT }]);
             }
         } else {
             keysPressed.current[e.key.toLowerCase()] = true;
@@ -226,7 +232,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [open, shipX, gameOver, win, isClosing]);
+  }, [open, currentShipX, gameOver, win, isClosing]);
 
 
   // Start/stop game loop
