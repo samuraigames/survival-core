@@ -51,7 +51,7 @@ export default function Home() {
   };
 
   return (
-    <main className="w-screen h-screen bg-black overflow-hidden flex items-center justify-center">
+    <main className="w-screen bg-black flex">
       {renderGameState()}
     </main>
   );
