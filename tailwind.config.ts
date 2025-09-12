@@ -81,11 +81,16 @@ export default {
           '0%, 100%': { boxShadow: '0 0 10px 2px hsl(var(--destructive)), 0 0 20px 5px hsl(var(--destructive) / 0.5)' },
           '50%': { boxShadow: '0 0 25px 8px hsl(var(--destructive)), 0 0 40px 15px hsl(var(--destructive) / 0.5)' },
         },
+         stars: {
+          from: { backgroundPosition: '0 0' },
+          to: { backgroundPosition: '0 10000px' },
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'engine-glow': 'engine-glow 2s ease-in-out infinite',
+        'stars': 'stars 200s linear infinite',
       },
       backgroundImage: {
         'grid-pattern': `linear-gradient(to right, hsl(var(--primary) / 0.1) 1px, transparent 1px),
