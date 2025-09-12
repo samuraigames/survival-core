@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { GameState } from '@/app/page';
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from '@/hooks/use-mobile';
 import NavigationMinigame from './navigation-minigame';
@@ -40,27 +41,20 @@ const ZONES = {
 type ZoneName = keyof typeof ZONES | null;
 
 interface GameUIProps {
-    onGameWin: (score: number) => void;
-    onGameLose: (score: number, message: string) => void;
+    initialState: GameState;
+    onStateChange: (newState: GameState) => void;
+    onGameWin: (finalState: GameState) => void;
+    onGameLose: (finalState: GameState, message: string) => void;
     onReturnToMenu: () => void;
-    initialScore: number;
 }
 
-export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialScore }: GameUIProps) {
-  const [score, setScore] = useState(initialScore);
-  const [eventIntensity, setEventIntensity] = useState(1);
-  const [playerPosition, setPlayerPosition] = useState({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
+export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu }: GameUIProps) {
+  const [gameState, setGameState] = useState(initialState);
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'navigation' | 'defense' | 'life-support' | null>(null);
   const [isPaused, setIsPaused] = useState(false);
-  const [shipHits, setShipHits] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
-  const [gameTime, setGameTime] = useState(0);
-  const [engineTime, setEngineTime] = useState(ENGINE_OVERLOAD_SECONDS);
-  const [isUnderAsteroidAttack, setIsUnderAsteroidAttack] = useState(false);
-  const [isNavCourseDeviating, setIsNavCourseDeviating] = useState(false);
-  const [isLifeSupportFailing, setIsLifeSupportFailing] = useState(false);
   
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -73,38 +67,61 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
   const gameLoopRef = useRef<number>();
   const isInitialMount = useRef(true);
 
+  const {
+    score,
+    gameTime,
+    engineTime,
+    shipHits,
+    eventIntensity,
+    isUnderAsteroidAttack,
+    isNavCourseDeviating,
+    isLifeSupportFailing,
+    playerPosition
+  } = gameState;
+
 
   const isGameActive = !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
 
+  const updateState = (newState: Partial<GameState>) => {
+    setGameState(prevState => ({ ...prevState, ...newState }));
+  };
+
   const takeHit = useCallback(() => {
     setIsShaking(true);
-    setShipHits(h => h + 1);
-    setEngineTime(t => Math.max(0, t - 2));
+    updateState({ 
+      shipHits: shipHits + 1,
+      engineTime: Math.max(0, engineTime - 2)
+    });
     setTimeout(() => setIsShaking(false), 500);
-  }, []);
+  }, [shipHits, engineTime]);
   
   useEffect(() => {
     if (isInitialMount.current) return;
     if (shipHits >= 10) {
-      onGameLose(score, "The ship's hull has been breached!");
+      onGameLose(gameState, "The ship's hull has been breached!");
     }
-  }, [shipHits, onGameLose, score]);
+  }, [shipHits, onGameLose, gameState]);
   
   useEffect(() => {
     if (isInitialMount.current) return;
     if (engineTime <= 0) {
-      onGameLose(score, "The engine has overloaded!");
+      onGameLose(gameState, "The engine has overloaded!");
     }
-  }, [engineTime, onGameLose, score]);
+  }, [engineTime, onGameLose, gameState]);
 
   useEffect(() => {
     if (isInitialMount.current) return;
     if (gameTime >= WIN_TIME_SECONDS) {
-        onGameWin(score);
+        onGameWin(gameState);
     }
-  }, [gameTime, onGameWin, score]);
+  }, [gameTime, onGameWin, gameState]);
+
+  // Bubble up state changes to parent
+  useEffect(() => {
+    onStateChange(gameState);
+  }, [gameState, onStateChange]);
 
 
   const triggerInteraction = useCallback(() => {
@@ -188,7 +205,7 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
             }
           } else if (zoneKey === 'LIFE_SUPPORT') {
             if (isLifeSupportFailing) {
-              closestZone = { prompt: 'Press [E] to RESTORE LIFE SUPPORT!', zone: 'LIFE_SUPPORT'};
+              closestZone = { prompt: 'Press [E_ to RESTORE LIFE SUPPORT!', zone: 'LIFE_SUPPORT'};
             } else {
               closestZone = { prompt: 'Systems Stable', zone: 'LIFE_SUPPORT'};
             }
@@ -208,16 +225,16 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
 
     const eventType = Math.random();
     if (eventType < 0.33) {
-      setIsNavCourseDeviating(true);
+      updateState({ isNavCourseDeviating: true });
       toast({ title: "Alert!", description: "Course deviation detected! Get to the navigation console!", variant: "destructive" });
     } else if (eventType < 0.66) {
-      setIsUnderAsteroidAttack(true);
+      updateState({ isUnderAsteroidAttack: true });
       toast({ title: "INCOMING!", description: "Asteroid field detected! Get to the defense console!", variant: 'destructive' });
     } else {
-      setIsLifeSupportFailing(true);
+      updateState({ isLifeSupportFailing: true });
       toast({ title: "Warning!", description: "Life support systems are failing!", variant: 'destructive' });
     }
-  }, [isGameActive, toast, isCrisisActive]);
+  }, [isGameActive, toast, isCrisisActive, updateState]);
 
   // Main Event Scheduling Loop
   useEffect(() => {
@@ -238,8 +255,10 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
   useEffect(() => {
     if (isGameActive) {
       gameTimerRef.current = setInterval(() => {
-        setGameTime(t => t + 1);
-        setEngineTime(t => t - 1);
+        updateState({ 
+          gameTime: gameTime + 1,
+          engineTime: engineTime - 1,
+        });
       }, 1000);
     } else {
         if(gameTimerRef.current) clearInterval(gameTimerRef.current);
@@ -249,22 +268,20 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
         clearInterval(gameTimerRef.current);
       }
     };
-  }, [isGameActive]);
+  }, [isGameActive, gameTime, engineTime]);
   
    // Initial setup
   useEffect(() => {
-    setPlayerPosition({ x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 });
-    
-    if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
-    if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
 
-    // Start first event quickly
-    setTimeout(triggerRandomEvent, 5000); 
+    // Start first event quickly if it's a new game
+    if (gameTime < 5) {
+      setTimeout(triggerRandomEvent, 5000); 
+    }
 
     // Set initial mount to false after the first render.
     isInitialMount.current = false;
-  }, [triggerRandomEvent]);
+  }, [triggerRandomEvent, gameTime]);
   
    // Keyboard input listeners
   useEffect(() => {
@@ -310,7 +327,7 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
         const newPos = { x: clampedX, y: clampedY };
         
         if (newPos.x !== playerPosition.x || newPos.y !== playerPosition.y) {
-            setPlayerPosition(newPos);
+            updateState({ playerPosition: newPos });
         }
       }
 
@@ -348,18 +365,18 @@ export default function GameUI({ onGameWin, onGameLose, onReturnToMenu, initialS
 
     if (success) {
         const points = type === 'life-support' ? 50 : (type === 'navigation' ? 100 : 200);
-        setScore(s => s + points);
+        updateState({
+            score: score + points,
+            isUnderAsteroidAttack: type === 'defense' ? false : isUnderAsteroidAttack,
+            isNavCourseDeviating: type === 'navigation' ? false : isNavCourseDeviating,
+            isLifeSupportFailing: type === 'life-support' ? false : isLifeSupportFailing,
+            eventIntensity: Math.min(10, eventIntensity + 0.5),
+        });
         toast({ title: "Success!", description: `+${points} points!`, className: "border-green-500" });
-
-        if (type === 'defense') setIsUnderAsteroidAttack(false);
-        if (type === 'navigation') setIsNavCourseDeviating(false);
-        if (type === 'life-support') setIsLifeSupportFailing(false);
-
-        setEventIntensity(e => Math.min(10, e + 0.5));
 
     } else if (!manualClose) {
         takeHit();
-        setEventIntensity(e => Math.max(1, e - 1));
+        updateState({ eventIntensity: Math.max(1, eventIntensity - 1) });
         toast({ title: "Failed!", description: "Ship integrity compromised.", variant: 'destructive' });
     }
   };

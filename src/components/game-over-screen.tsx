@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { motion } from 'framer-motion';
-import { RotateCcw, Trophy } from "lucide-react";
+import { RotateCcw, Trophy, Home } from "lucide-react";
 
 interface GameOverScreenProps {
   score: number;
@@ -62,7 +62,7 @@ const GameOverScreen = ({ score, onRestart, won, customMessage }: GameOverScreen
           variant="outline"
           className="font-headline text-2xl px-12 py-8 rounded-full shadow-lg transition-all duration-300"
         >
-          {won ? <Trophy className="mr-4 h-8 w-8" /> : <RotateCcw className="mr-4 h-8 w-8" />}
+          {won ? <RotateCcw className="mr-4 h-8 w-8" /> : <Home className="mr-4 h-8 w-8" />}
           {won ? 'PLAY AGAIN' : 'RETURN TO MENU'}
         </Button>
       </motion.div>
