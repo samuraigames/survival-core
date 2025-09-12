@@ -411,7 +411,7 @@ export default function GameUI({ onGameWin, onGameLose, initialScore }: GameUIPr
             {/* Top Row: Journey & Engine Progress */}
             <div className="flex items-center gap-4 w-full">
               <Rocket className="w-5 h-5 text-accent" />
-              <Progress value={journeyProgressPercentage} className="w-full h-2" />
+              <Progress value={journeyProgressPercentage} className="w-full h-2 [&>*]:bg-green-400" />
               <Globe className="w-5 h-5 text-green-400" />
               <Fan className="w-5 h-5 text-destructive" />
               <Progress value={engineTimePercentage} className="w-full h-2 bg-destructive/30 [&>*]:bg-destructive" />
