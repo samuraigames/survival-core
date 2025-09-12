@@ -89,3 +89,6 @@
   }
 }
 
+.scrolling-stars {
+  animation: stars 200s linear infinite;
+}
