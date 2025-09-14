@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
+    "export": "next export"
+
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
