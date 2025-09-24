@@ -1,0 +1,11 @@
+# Netlify configuration file
+
+[build]
+  # Command to build the site
+  command = "npm run build"
+  # Directory to publish
+  publish = "out"
+
+[build.environment]
+  # Specify the Node.js version
+  NODE_VERSION = "20"
