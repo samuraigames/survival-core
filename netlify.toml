@@ -8,4 +8,4 @@
 
 [build.environment]
   # Specify the Node.js version
-  NODE_VERSION = "20"
+  NODE_VERSION = "20.17.0"
