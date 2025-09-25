@@ -1,47 +1,45 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Dependencies
+# dependencies
 /node_modules
 /.pnp
 .pnp.js
 
-# Testing
+# testing
 /coverage
 
-# Next.js build output
+# next.js
 /.next/
 /out/
 
-# Production
+# production
 /build
 
-# Misc
+# misc
 .DS_Store
 *.pem
 
-# Local .env files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE files
-.vscode/
-.idea/
-
-# Turborepo
-.turbo
-
-# Log files
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Windows system files from error log
-/AppData/
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Netlify
+.netlify
+
+# Lock file
+package-lock.json
+yarn.lock
+
+# AppData
 AppData/
-'AppData/Local/Application Data/'
-'AppData/Local/History/'
-'AppData/Local/Microsoft/Windows/INetCache/Content.IE5/'
-'AppData/Local/Microsoft/Windows/INetCache/Low/Content.IE5/'
-'AppData/Local/Microsoft/Windows/Temporary Internet Files/'
