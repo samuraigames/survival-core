@@ -417,18 +417,44 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     };
   }, [gameLoop]);
   
-  // Camera follow animation
+  // Camera follow animation and player clamping
   useEffect(() => {
     if (scope.current) {
-      const cameraX = -playerPosition.x + SHIP_WIDTH / 2;
-      const cameraY = -playerPosition.y + SHIP_HEIGHT / 2;
-      
-      const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, cameraX));
-      const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, cameraY));
+      // Calculate camera's ideal top-left corner position to center the player
+      const idealCameraX = -playerPosition.x + SHIP_WIDTH / 2;
+      const idealCameraY = -playerPosition.y + SHIP_HEIGHT / 2;
 
+      // Clamp the camera's position so it doesn't show areas outside the world
+      const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, idealCameraX));
+      const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, idealCameraY));
+
+      // Animate the camera to its new clamped position
       animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 100, damping: 20, mass: 0.5 });
+      
+      // Now, determine the visible bounds for the player based on the *actual* camera position
+      handleStateUpdate(prevState => {
+        const playerMinX = -clampedCameraX + (PLAYER_SIZE / 2);
+        const playerMaxX = -clampedCameraX + SHIP_WIDTH - (PLAYER_SIZE / 2);
+        const playerMinY = -clampedCameraY + (PLAYER_SIZE / 2);
+        const playerMaxY = -clampedCameraY + SHIP_HEIGHT - (PLAYER_SIZE / 2);
+
+        const clampedPlayerX = Math.max(playerMinX, Math.min(prevState.playerPosition.x, playerMaxX));
+        const clampedPlayerY = Math.max(playerMinY, Math.min(prevState.playerPosition.y, playerMaxY));
+        
+        // Only update state if there's a change to prevent potential loops
+        if (clampedPlayerX !== prevState.playerPosition.x || clampedPlayerY !== prevState.playerPosition.y) {
+           return {
+            ...prevState,
+            playerPosition: {
+              x: clampedPlayerX,
+              y: clampedPlayerY,
+            }
+          };
+        }
+        return prevState;
+      });
     }
-  }, [playerPosition, animate, scope]);
+  }, [playerPosition, animate, scope, handleStateUpdate]);
   
   const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean, manualClose: boolean) => {
     setActiveMinigame(null);
@@ -793,6 +819,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
+
 
 
 
