@@ -76,7 +76,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     isUnderAsteroidAttack,
     isNavCourseDeviating,
     isLifeSupportFailing,
-    playerPosition
+    playerPosition,
+    playerVelocity,
   } = gameState;
 
   // Track previous crisis states to show toast only on change
@@ -348,34 +349,59 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   const gameLoop = useCallback(() => {
     const isMovementPaused = !isGameActive || activeMinigame !== null;
     if (!isMovementPaused) {
-      handleStateUpdate(prevState => {
-        let { x, y } = prevState.playerPosition;
-        const speed = 5;
-  
-        // Keyboard movement
-        let moved = false;
-        if (keysPressed.current['w']) { y -= speed; moved = true; }
-        if (keysPressed.current['s']) { y += speed; moved = true; }
-        if (keysPressed.current['a']) { x -= speed; moved = true; }
-        if (keysPressed.current['d']) { x += speed; moved = true; }
-        
-        // Joystick movement
-        if (joystickVector.x !== 0 || joystickVector.y !== 0) {
-            x += joystickVector.x * speed;
-            y += joystickVector.y * speed;
-            moved = true;
-        }
-  
-        if (moved) {
-          // Clamp position to world bounds
-          const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(x, WORLD_WIDTH - PLAYER_SIZE / 2));
-          const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(y, WORLD_HEIGHT - PLAYER_SIZE / 2));
-          
-          return { ...prevState, playerPosition: { x: clampedX, y: clampedY } };
-        }
-        
-        return prevState;
-      });
+        handleStateUpdate(prevState => {
+            let { x: posX, y: posY } = prevState.playerPosition;
+            let { x: velX, y: velY } = prevState.playerVelocity;
+
+            const acceleration = 0.5;
+            const friction = 0.9;
+            const maxSpeed = 7;
+
+            // Keyboard input
+            if (keysPressed.current['w']) velY -= acceleration;
+            if (keysPressed.current['s']) velY += acceleration;
+            if (keysPressed.current['a']) velX -= acceleration;
+            if (keysPressed.current['d']) velX += acceleration;
+
+            // Joystick input
+            if (joystickVector.x !== 0 || joystickVector.y !== 0) {
+                velX += joystickVector.x * acceleration;
+                velY += joystickVector.y * acceleration;
+            }
+
+            // Cap speed
+            const speed = Math.hypot(velX, velY);
+            if (speed > maxSpeed) {
+                velX = (velX / speed) * maxSpeed;
+                velY = (velY / speed) * maxSpeed;
+            }
+
+            // Apply friction
+            velX *= friction;
+            velY *= friction;
+            
+            // Stop if velocity is very low
+            if (Math.abs(velX) < 0.1) velX = 0;
+            if (Math.abs(velY) < 0.1) velY = 0;
+
+            // Update position
+            posX += velX;
+            posY += velY;
+
+            // Clamp position to world bounds
+            const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
+            const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
+
+            // Bounce off walls
+            if (posX !== clampedX) velX *= -0.5;
+            if (posY !== clampedY) velY *= -0.5;
+
+            return {
+                ...prevState,
+                playerPosition: { x: clampedX, y: clampedY },
+                playerVelocity: { x: velX, y: velY },
+            };
+        });
     }
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -683,7 +709,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
                     x: playerPosition.x, 
                     y: playerPosition.y 
                 }}
-                transition={{ type: "spring", stiffness: 700, damping: 35, duration: 0.1 }}
+                transition={{ type: "tween", ease: "linear", duration: 0 }}
                 style={{
                     width: PLAYER_SIZE,
                     height: PLAYER_SIZE,
@@ -762,7 +788,3 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
-
-    
-
-    

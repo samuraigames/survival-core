@@ -17,6 +17,7 @@ const initialGameState = {
   isNavCourseDeviating: false,
   isLifeSupportFailing: false,
   playerPosition: { x: 600, y: 450 }, // WORLD_WIDTH / 2, WORLD_HEIGHT / 2
+  playerVelocity: { x: 0, y: 0 },
 };
 
 export type GameState = typeof initialGameState;
