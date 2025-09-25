@@ -96,7 +96,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // This is a stable function to update state that can be used in callbacks
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
-  }, []);
+  }, [setGameState]);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -793,5 +793,6 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
+
 
 
