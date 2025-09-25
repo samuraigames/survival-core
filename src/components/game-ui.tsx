@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -480,7 +481,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   return (
     <div
-      className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center"
+      className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center relative"
       style={{
         width: TOTAL_WIDTH,
         height: TOTAL_HEIGHT,
@@ -749,15 +750,18 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             </motion.div>
             )}
         </AnimatePresence>
+      </div>
+      </motion.div>
 
-          {isMobile && isGameActive && (
-            <div className="absolute bottom-5 left-5 z-20">
+      {/* Mobile Controls Overlay */}
+      {isMobile && isGameActive && (
+        <div className="absolute inset-0 w-full h-full pointer-events-none z-40">
+            <div className="absolute bottom-5 left-5 pointer-events-auto">
               <Joystick onMove={setJoystickVector} />
             </div>
-          )}
-
-          {isMobile && isGameActive && interaction && (
-            <div className="absolute bottom-8 right-5 z-20">
+          
+            {interaction && (
+            <div className="absolute bottom-8 right-5 pointer-events-auto">
               <Button
                 onClick={triggerInteraction}
                 className="rounded-full w-20 h-20 text-lg bg-accent/80 hover:bg-accent border-2 border-accent-foreground/50 shadow-lg backdrop-blur-sm"
@@ -765,9 +769,10 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
                 {interactionText}
               </Button>
             </div>
-          )}
-      </div>
-      </motion.div>
+            )}
+        </div>
+      )}
+
 
         <NavigationMinigame
           open={activeMinigame === 'navigation'}
@@ -788,3 +793,4 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
+
