@@ -5,6 +5,7 @@ import GameUI from '@/components/game-ui';
 import StartScreen from '@/components/start-screen';
 import GameOverScreen from '@/components/game-over-screen';
 import { useIsMobile } from '@/hooks/use-mobile';
+import OrientationLock from '@/components/orientation-lock';
 
 type GameStatus = 'start' | 'playing' | 'game-over';
 
@@ -17,8 +18,6 @@ const initialGameState = {
   isUnderAsteroidAttack: false,
   isNavCourseDeviating: false,
   isLifeSupportFailing: false,
-  playerPosition: { x: 600, y: 450 }, // WORLD_WIDTH / 2, WORLD_HEIGHT / 2
-  playerVelocity: { x: 0, y: 0 },
 };
 
 export type GameState = typeof initialGameState;
@@ -114,7 +113,9 @@ export default function Home() {
 
   return (
     <main className="w-screen bg-black flex items-center justify-center">
-      {renderGameStatus()}
+      <OrientationLock isMobile={isMobile}>
+        {renderGameStatus()}
+      </OrientationLock>
     </main>
   );
 }
