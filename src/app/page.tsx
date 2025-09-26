@@ -18,6 +18,8 @@ const initialGameState = {
   isUnderAsteroidAttack: false,
   isNavCourseDeviating: false,
   isLifeSupportFailing: false,
+  playerPosition: { x: 600, y: 450 }, // Centered in a 1200x900 world
+  playerVelocity: { x: 0, y: 0 },
 };
 
 export type GameState = typeof initialGameState;
