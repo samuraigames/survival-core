@@ -52,6 +52,8 @@ interface GameUIProps {
 
 export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
+  const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
+  const [playerVelocity, setPlayerVelocity] = useState(initialState.playerVelocity);
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'navigation' | 'defense' | 'life-support' | null>(null);
@@ -78,8 +80,6 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     isUnderAsteroidAttack,
     isNavCourseDeviating,
     isLifeSupportFailing,
-    playerPosition,
-    playerVelocity,
   } = gameState;
 
   // Track previous crisis states to show toast only on change
@@ -97,7 +97,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // This is a stable function to update state that can be used in callbacks
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
-  }, [setGameState]);
+  }, []);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -132,8 +132,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   // Bubble up state changes to parent
   useEffect(() => {
-    onStateChange(gameState);
-  }, [gameState, onStateChange]);
+    onStateChange({ ...gameState, playerPosition, playerVelocity });
+  }, [gameState, playerPosition, playerVelocity, onStateChange]);
 
 
   const triggerInteraction = useCallback(() => {
@@ -352,12 +352,12 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   }, [isMobileMode]);
 
   // Game loop for smooth movement
-  const gameLoop = useCallback(() => {
-    const isMovementPaused = !isGameActive || activeMinigame !== null;
-    if (!isMovementPaused) {
-        handleStateUpdate(prevState => {
-            let { x: posX, y: posY } = prevState.playerPosition;
-            let { x: velX, y: velY } = prevState.playerVelocity;
+  useEffect(() => {
+    const gameLoop = () => {
+      const isMovementPaused = !isGameActive || activeMinigame !== null;
+      if (!isMovementPaused) {
+        setPlayerVelocity(prevVelocity => {
+            let { x: velX, y: velY } = prevVelocity;
 
             const acceleration = 0.5;
             const friction = 0.9;
@@ -391,38 +391,42 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             // Stop if velocity is very low
             if (Math.abs(velX) < 0.1) velX = 0;
             if (Math.abs(velY) < 0.1) velY = 0;
+            
+            setPlayerPosition(prevPosition => {
+                let { x: posX, y: posY } = prevPosition;
 
-            // Update position
-            posX += velX;
-            posY += velY;
+                // Update position
+                posX += velX;
+                posY += velY;
 
-            // Clamp position to world bounds
-            const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
-            const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
+                // Clamp position to world bounds
+                const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
+                const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
+                
+                // Bounce off walls
+                if (posX !== clampedX) velX *= -0.5;
+                if (posY !== clampedY) velY *= -0.5;
 
-            // Bounce off walls
-            if (posX !== clampedX) velX *= -0.5;
-            if (posY !== clampedY) velY *= -0.5;
+                return { x: clampedX, y: clampedY };
+            });
 
-            return {
-                ...prevState,
-                playerPosition: { x: clampedX, y: clampedY },
-                playerVelocity: { x: velX, y: velY },
-            };
+            return { x: velX, y: velY };
         });
     }
 
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [isGameActive, activeMinigame, joystickVector, handleStateUpdate, isMobileMode]);
-  
-  useEffect(() => {
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+      return () => {
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+      };
+    };
+
     gameLoopRef.current = requestAnimationFrame(gameLoop);
     return () => {
       if (gameLoopRef.current) {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameLoop]);
+  }, [isGameActive, activeMinigame, joystickVector, isMobileMode]);
   
   // Camera follow animation and player clamping
   useEffect(() => {
@@ -439,29 +443,26 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 100, damping: 20, mass: 0.5 });
       
       // Now, determine the visible bounds for the player based on the *actual* camera position
-      handleStateUpdate(prevState => {
+      setPlayerPosition(prevState => {
         const playerMinX = -clampedCameraX + (PLAYER_SIZE / 2);
         const playerMaxX = -clampedCameraX + SHIP_WIDTH - (PLAYER_SIZE / 2);
         const playerMinY = -clampedCameraY + (PLAYER_SIZE / 2);
         const playerMaxY = -clampedCameraY + SHIP_HEIGHT - (PLAYER_SIZE / 2);
 
-        const clampedPlayerX = Math.max(playerMinX, Math.min(prevState.playerPosition.x, playerMaxX));
-        const clampedPlayerY = Math.max(playerMinY, Math.min(prevState.playerPosition.y, playerMaxY));
+        const clampedPlayerX = Math.max(playerMinX, Math.min(prevState.x, playerMaxX));
+        const clampedPlayerY = Math.max(playerMinY, Math.min(prevState.y, playerMaxY));
         
         // Only update state if there's a change to prevent potential loops
-        if (clampedPlayerX !== prevState.playerPosition.x || clampedPlayerY !== prevState.playerPosition.y) {
+        if (clampedPlayerX !== prevState.x || clampedPlayerY !== prevState.y) {
            return {
-            ...prevState,
-            playerPosition: {
               x: clampedPlayerX,
               y: clampedPlayerY,
-            }
           };
         }
         return prevState;
       });
     }
-  }, [playerPosition, animate, scope, handleStateUpdate]);
+  }, [playerPosition, animate, scope]);
   
   const onMinigameClose = (type: 'navigation' | 'defense' | 'life-support', success: boolean, manualClose: boolean) => {
     setActiveMinigame(null);
@@ -831,3 +832,6 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
 
 
+
+
+    
