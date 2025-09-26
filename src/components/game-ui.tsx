@@ -354,79 +354,68 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // Game loop for smooth movement
   useEffect(() => {
     const gameLoop = () => {
-      const isMovementPaused = !isGameActive || activeMinigame !== null;
-      if (!isMovementPaused) {
-        setPlayerVelocity(prevVelocity => {
-            let { x: velX, y: velY } = prevVelocity;
+        const isMovementPaused = !isGameActive || activeMinigame !== null;
+        if (!isMovementPaused) {
+            setPlayerVelocity(prevVelocity => {
+                let { x: velX, y: velY } = prevVelocity;
 
-            const acceleration = 0.5;
-            const friction = 0.9;
-            const maxSpeed = 7;
+                const acceleration = 0.5;
+                const friction = 0.9;
+                const maxSpeed = 7;
 
-            // Keyboard input (PC mode)
-            if (!isMobileMode) {
-                if (keysPressed.current['w']) velY -= acceleration;
-                if (keysPressed.current['s']) velY += acceleration;
-                if (keysPressed.current['a']) velX -= acceleration;
-                if (keysPressed.current['d']) velX += acceleration;
-            }
+                if (!isMobileMode) {
+                    if (keysPressed.current['w']) velY -= acceleration;
+                    if (keysPressed.current['s']) velY += acceleration;
+                    if (keysPressed.current['a']) velX -= acceleration;
+                    if (keysPressed.current['d']) velX += acceleration;
+                }
 
-            // Joystick input (Mobile mode)
-            if (isMobileMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
-                velX += joystickVector.x * acceleration;
-                velY += joystickVector.y * acceleration;
-            }
+                if (isMobileMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
+                    velX += joystickVector.x * acceleration;
+                    velY += joystickVector.y * acceleration;
+                }
 
-            // Cap speed
-            const speed = Math.hypot(velX, velY);
-            if (speed > maxSpeed) {
-                velX = (velX / speed) * maxSpeed;
-                velY = (velY / speed) * maxSpeed;
-            }
+                const speed = Math.hypot(velX, velY);
+                if (speed > maxSpeed) {
+                    velX = (velX / speed) * maxSpeed;
+                    velY = (velY / speed) * maxSpeed;
+                }
 
-            // Apply friction
-            velX *= friction;
-            velY *= friction;
-            
-            // Stop if velocity is very low
-            if (Math.abs(velX) < 0.1) velX = 0;
-            if (Math.abs(velY) < 0.1) velY = 0;
-            
-            setPlayerPosition(prevPosition => {
-                let { x: posX, y: posY } = prevPosition;
-
-                // Update position
-                posX += velX;
-                posY += velY;
-
-                // Clamp position to world bounds
-                const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
-                const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
+                velX *= friction;
+                velY *= friction;
                 
-                // Bounce off walls
-                if (posX !== clampedX) velX *= -0.5;
-                if (posY !== clampedY) velY *= -0.5;
+                if (Math.abs(velX) < 0.1) velX = 0;
+                if (Math.abs(velY) < 0.1) velY = 0;
+                
+                setPlayerPosition(prevPosition => {
+                    let { x: posX, y: posY } = prevPosition;
 
-                return { x: clampedX, y: clampedY };
+                    posX += velX;
+                    posY += velY;
+
+                    const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
+                    const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
+                    
+                    if (posX !== clampedX) velX *= -0.5;
+                    if (posY !== clampedY) velY *= -0.5;
+
+                    return { x: clampedX, y: clampedY };
+                });
+
+                return { x: velX, y: velY };
             });
-
-            return { x: velX, y: velY };
-        });
-    }
-
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
-      return () => {
-        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-      };
+        }
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
+
     return () => {
-      if (gameLoopRef.current) {
-        cancelAnimationFrame(gameLoopRef.current);
-      }
+        if (gameLoopRef.current) {
+            cancelAnimationFrame(gameLoopRef.current);
+        }
     };
-  }, [isGameActive, activeMinigame, joystickVector, isMobileMode]);
+}, [isGameActive, activeMinigame, isMobileMode, joystickVector]);
   
   // Camera follow animation and player clamping
   useEffect(() => {
@@ -833,5 +822,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
 
 
+
+    
 
     
