@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameState } from '@/app/page';
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from '@/hooks/use-mobile';
 import NavigationMinigame from './navigation-minigame';
 import AsteroidDefenseMinigame from './asteroid-defense-minigame';
 import LifeSupportMinigame from './life-support-minigame';
@@ -53,7 +52,7 @@ interface GameUIProps {
 export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
-  const playerVelocity = useRef(initialState.playerVelocity);
+  const [playerVelocity, setPlayerVelocity] = useState(initialState.playerVelocity);
 
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
@@ -67,9 +66,16 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   const eventIntervalRef = useRef<NodeJS.Timeout>();
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
   const [scope, animate] = useAnimate();
-  const keysPressed = useRef<{ [key: string]: boolean }>({});
   const gameLoopRef = useRef<number>();
   const isInitialMount = useRef(true);
+
+  // Refs for stable values in game loop
+  const keysPressed = useRef<{ [key: string]: boolean }>({});
+  const isGameActiveRef = useRef(true);
+  const activeMinigameRef = useRef(activeMinigame);
+  const isMobileModeRef = useRef(isMobileMode);
+  const joystickVectorRef = useRef(joystickVector);
+
 
   const {
     score,
@@ -89,12 +95,10 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     isLifeSupportFailing,
   });
 
-
   const isGameActive = !isPaused;
   const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
   
-  // This is a stable function to update state that can be used in callbacks
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
   }, [setGameState]);
@@ -132,8 +136,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   // Bubble up state changes to parent
   useEffect(() => {
-    onStateChange({ ...gameState, playerPosition, playerVelocity: playerVelocity.current });
-  }, [gameState, playerPosition, onStateChange]);
+    onStateChange({ ...gameState, playerPosition, playerVelocity });
+  }, [gameState, playerPosition, playerVelocity, onStateChange]);
 
 
   const triggerInteraction = useCallback(() => {
@@ -331,6 +335,14 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
         isInitialMount.current = false;
     }
   }, []);
+
+  // Update refs for game loop
+  useEffect(() => {
+    isGameActiveRef.current = isGameActive;
+    activeMinigameRef.current = activeMinigame;
+    isMobileModeRef.current = isMobileMode;
+    joystickVectorRef.current = joystickVector;
+  }, [isGameActive, activeMinigame, isMobileMode, joystickVector]);
   
    // Keyboard input listeners
   useEffect(() => {
@@ -354,26 +366,25 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // Game loop for smooth movement
   useEffect(() => {
     const loop = () => {
-        const isMovementPaused = isPaused || activeMinigame !== null;
+        if (!isGameActiveRef.current || activeMinigameRef.current !== null) {
+            gameLoopRef.current = requestAnimationFrame(loop);
+            return;
+        }
 
-        if (!isMovementPaused) {
-            
-            let { x: velX, y: velY } = playerVelocity.current;
-
+        setPlayerVelocity(prevVelocity => {
+            let { x: velX, y: velY } = prevVelocity;
             const acceleration = 0.5;
             const friction = 0.9;
             const maxSpeed = 7;
 
-            if (!isMobileMode) {
+            if (!isMobileModeRef.current) {
                 if (keysPressed.current['w']) velY -= acceleration;
                 if (keysPressed.current['s']) velY += acceleration;
                 if (keysPressed.current['a']) velX -= acceleration;
                 if (keysPressed.current['d']) velX += acceleration;
-            }
-
-            if (isMobileMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
-                velX += joystickVector.x * acceleration;
-                velY += joystickVector.y * acceleration;
+            } else {
+                velX += joystickVectorRef.current.x * acceleration;
+                velY += joystickVectorRef.current.y * acceleration;
             }
 
             const speed = Math.hypot(velX, velY);
@@ -388,23 +399,19 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             if (Math.abs(velX) < 0.1) velX = 0;
             if (Math.abs(velY) < 0.1) velY = 0;
 
-            playerVelocity.current = { x: velX, y: velY };
-            
             setPlayerPosition(prevPosition => {
-                let { x: posX, y: posY } = prevPosition;
+                let newX = prevPosition.x + velX;
+                let newY = prevPosition.y + velY;
 
-                posX += velX;
-                posY += velY;
-
-                const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
-                const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
+                newX = Math.max(PLAYER_SIZE / 2, Math.min(newX, WORLD_WIDTH - PLAYER_SIZE / 2));
+                newY = Math.max(PLAYER_SIZE / 2, Math.min(newY, WORLD_HEIGHT - PLAYER_SIZE / 2));
                 
-                if (posX !== clampedX) velX *= -0.5;
-                if (posY !== clampedY) velY *= -0.5;
-
-                return { x: clampedX, y: clampedY };
+                return { x: newX, y: newY };
             });
-        }
+
+            return { x: velX, y: velY };
+        });
+
         gameLoopRef.current = requestAnimationFrame(loop);
     };
 
@@ -415,7 +422,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             cancelAnimationFrame(gameLoopRef.current);
         }
     };
-  }, [isPaused, activeMinigame, isMobileMode, joystickVector]);
+  }, []);
   
   // Camera follow animation and player clamping
   useEffect(() => {
@@ -429,7 +436,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, idealCameraY));
 
       // Animate the camera to its new clamped position
-      animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 100, damping: 20, mass: 0.5 });
+      animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 300, damping: 30, mass: 0.5 });
       
       // Now, determine the visible bounds for the player based on the *actual* camera position
       setPlayerPosition(prevState => {
@@ -500,6 +507,12 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   const shipIntegrityPercentage = 100 - shipHits * 10;
   const journeyProgressPercentage = (gameTime / WIN_TIME_SECONDS) * 100;
   const engineTimePercentage = (engineTime / ENGINE_OVERLOAD_SECONDS) * 100;
+  
+  const canInteract = 
+      (interaction?.zone === 'NAV_CONSOLE' && isNavCourseDeviating) ||
+      (interaction?.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) ||
+      (interaction?.zone === 'LIFE_SUPPORT' && isLifeSupportFailing);
+
   const interactionText = interaction?.prompt.replace('Press [E] to ', '');
 
   return (
@@ -610,7 +623,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             <div className="absolute inset-0" style={{backgroundSize: '40px 40px'}}></div>
 
             <AnimatePresence>
-              {interaction && !isMobileMode && (
+              {interaction && !isMobileMode && canInteract && (
                 <motion.div
                   style={getPromptPosition()}
                   initial={{ opacity: 0, y: 10 }}
@@ -783,7 +796,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
               <Joystick onMove={setJoystickVector} />
             </div>
           
-            {interaction && (
+            {interaction && canInteract && (
             <div className="absolute bottom-8 right-5 pointer-events-auto">
               <Button
                 onClick={triggerInteraction}
@@ -818,19 +831,5 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
-
-
-
-
-
-
-
-    
-
-    
-
-    
-
-    
 
     

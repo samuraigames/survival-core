@@ -148,7 +148,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   }, [isMobileMode]);
 
   useEffect(() => {
-    if(open) {
+    if(open && !isMobileMode) {
       window.addEventListener('keydown', handleKeyDown);
       window.addEventListener('keyup', handleKeyUp);
     }
@@ -156,7 +156,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [open, handleKeyDown, handleKeyUp]);
+  }, [open, handleKeyDown, handleKeyUp, isMobileMode]);
 
   // Create a viewable segment of the path
   const viewablePath = path.slice(Math.floor(progress), Math.floor(progress) + Math.ceil(GAME_WIDTH / 5) + 2);
@@ -246,6 +246,5 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 };
 
 export default NavigationMinigame;
-
 
     
