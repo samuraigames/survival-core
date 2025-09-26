@@ -145,12 +145,12 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
     if (interaction.zone === 'NAV_CONSOLE' && isNavCourseDeviating) {
       setActiveMinigame('navigation');
-    } else if (interaction.zone === 'DEFENSE_CONSOLE') { 
+    } else if (interaction.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) { 
       setActiveMinigame('defense');
     } else if (interaction.zone === 'LIFE_SUPPORT' && isLifeSupportFailing) {
       setActiveMinigame('life-support');
     }
-  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isLifeSupportFailing]);
+  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isLifeSupportFailing, isUnderAsteroidAttack]);
 
   // Passive damage from unattended crises
   useEffect(() => {
@@ -427,36 +427,16 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // Camera follow animation and player clamping
   useEffect(() => {
     if (scope.current) {
-      // Calculate camera's ideal top-left corner position to center the player
-      const idealCameraX = -playerPosition.x + SHIP_WIDTH / 2;
-      const idealCameraY = -playerPosition.y + SHIP_HEIGHT / 2;
+        // Calculate camera's ideal top-left corner to center the player
+        const idealCameraX = -playerPosition.x + SHIP_WIDTH / 2;
+        const idealCameraY = -playerPosition.y + SHIP_HEIGHT / 2;
 
-      // Clamp the camera's position so it doesn't show areas outside the world
-      const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, idealCameraX));
-      const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, idealCameraY));
+        // Clamp the camera's position so it doesn't show areas outside the world
+        const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, idealCameraX));
+        const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, idealCameraY));
 
-      // Animate the camera to its new clamped position
-      animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { type: "spring", stiffness: 300, damping: 30, mass: 0.5 });
-      
-      // Now, determine the visible bounds for the player based on the *actual* camera position
-      setPlayerPosition(prevState => {
-        const playerMinX = -clampedCameraX + (PLAYER_SIZE / 2);
-        const playerMaxX = -clampedCameraX + SHIP_WIDTH - (PLAYER_SIZE / 2);
-        const playerMinY = -clampedCameraY + (PLAYER_SIZE / 2);
-        const playerMaxY = -clampedCameraY + SHIP_HEIGHT - (PLAYER_SIZE / 2);
-
-        const clampedPlayerX = Math.max(playerMinX, Math.min(prevState.x, playerMaxX));
-        const clampedPlayerY = Math.max(playerMinY, Math.min(prevState.y, playerMaxY));
-        
-        // Only update state if there's a change to prevent potential loops
-        if (clampedPlayerX !== prevState.x || clampedPlayerY !== prevState.y) {
-           return {
-              x: clampedPlayerX,
-              y: clampedPlayerY,
-          };
-        }
-        return prevState;
-      });
+        // Animate the camera to its new clamped position without spring for a locked feel
+        animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { duration: 0 });
     }
   }, [playerPosition, animate, scope]);
   
@@ -831,5 +811,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
+
+    
 
     
