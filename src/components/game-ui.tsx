@@ -53,13 +53,14 @@ interface GameUIProps {
 export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
+  const playerVelocity = useRef(initialState.playerVelocity);
+
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'navigation' | 'defense' | 'life-support' | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   
-  const isMobile = useIsMobile();
   const { toast } = useToast();
   
   const gameTimerRef = useRef<NodeJS.Timeout>();
@@ -69,7 +70,6 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const gameLoopRef = useRef<number>();
   const isInitialMount = useRef(true);
-  const playerVelocity = useRef(initialState.playerVelocity);
 
   const {
     score,
@@ -97,7 +97,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // This is a stable function to update state that can be used in callbacks
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
-  }, [setGameState]);
+  }, []);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -821,6 +821,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
 
 
+
+    
 
     
 
