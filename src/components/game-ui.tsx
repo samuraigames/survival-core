@@ -47,9 +47,10 @@ interface GameUIProps {
     onGameWin: (finalState: GameState) => void;
     onGameLose: (finalState: GameState, message: string) => void;
     onReturnToMenu: () => void;
+    isMobileMode: boolean;
 }
 
-export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu }: GameUIProps) {
+export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
@@ -185,9 +186,11 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   }, [triggerInteraction]);
   
   useEffect(() => {
-    window.addEventListener('keydown', handleInteractionKey);
-    return () => window.removeEventListener('keydown', handleInteractionKey);
-  }, [handleInteractionKey]);
+    if (!isMobileMode) {
+      window.addEventListener('keydown', handleInteractionKey);
+      return () => window.removeEventListener('keydown', handleInteractionKey);
+    }
+  }, [handleInteractionKey, isMobileMode]);
   
   useEffect(() => {
     if (!isGameActive || activeMinigame) {
@@ -338,13 +341,15 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       keysPressed.current[event.key.toLowerCase()] = false;
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
+    if (!isMobileMode) {
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+      };
+    }
+  }, [isMobileMode]);
 
   // Game loop for smooth movement
   const gameLoop = useCallback(() => {
@@ -358,14 +363,16 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             const friction = 0.9;
             const maxSpeed = 7;
 
-            // Keyboard input
-            if (keysPressed.current['w']) velY -= acceleration;
-            if (keysPressed.current['s']) velY += acceleration;
-            if (keysPressed.current['a']) velX -= acceleration;
-            if (keysPressed.current['d']) velX += acceleration;
+            // Keyboard input (PC mode)
+            if (!isMobileMode) {
+                if (keysPressed.current['w']) velY -= acceleration;
+                if (keysPressed.current['s']) velY += acceleration;
+                if (keysPressed.current['a']) velX -= acceleration;
+                if (keysPressed.current['d']) velX += acceleration;
+            }
 
-            // Joystick input
-            if (joystickVector.x !== 0 || joystickVector.y !== 0) {
+            // Joystick input (Mobile mode)
+            if (isMobileMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
                 velX += joystickVector.x * acceleration;
                 velY += joystickVector.y * acceleration;
             }
@@ -406,7 +413,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     }
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [isGameActive, activeMinigame, joystickVector, handleStateUpdate]);
+  }, [isGameActive, activeMinigame, joystickVector, handleStateUpdate, isMobileMode]);
   
   useEffect(() => {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -586,7 +593,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
               </div>
 
               {/* Right Section: Controls */}
-              {!isMobile && (
+              {!isMobileMode && (
                 <div className="text-sm text-muted-foreground flex items-center gap-2 bg-card p-2 rounded-lg border">
                   <Gamepad2 className="w-5 h-5 text-accent" />
                   <div>
@@ -613,7 +620,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             <div className="absolute inset-0" style={{backgroundSize: '40px 40px'}}></div>
 
             <AnimatePresence>
-              {interaction && !isMobile && (
+              {interaction && !isMobileMode && (
                 <motion.div
                   style={getPromptPosition()}
                   initial={{ opacity: 0, y: 10 }}
@@ -780,7 +787,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       </motion.div>
 
       {/* Mobile Controls Overlay */}
-      {isMobile && isGameActive && (
+      {isMobileMode && isGameActive && (
         <div className="absolute inset-0 w-full h-full pointer-events-none z-40">
             <div className="absolute bottom-5 left-5 pointer-events-auto">
               <Joystick onMove={setJoystickVector} />
@@ -819,6 +826,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
+
 
 
 

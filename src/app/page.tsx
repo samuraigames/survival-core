@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import GameUI from '@/components/game-ui';
 import StartScreen from '@/components/start-screen';
 import GameOverScreen from '@/components/game-over-screen';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type GameStatus = 'start' | 'playing' | 'game-over';
 
@@ -28,6 +29,13 @@ export default function Home() {
   const [gameWon, setGameWon] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [isGameInProgress, setIsGameInProgress] = useState(false);
+  const [isMobileMode, setIsMobileMode] = useState(false);
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    // Default to mobile mode if on a mobile device, otherwise PC mode.
+    setIsMobileMode(isMobile);
+  }, [isMobile]);
 
   const handleContinueGame = useCallback(() => {
     setGameStatus('playing');
@@ -69,7 +77,15 @@ export default function Home() {
   const renderGameStatus = () => {
     switch (gameStatus) {
       case 'start':
-        return <StartScreen onStart={handleContinueGame} onNewGame={handleNewGame} isGameInProgress={isGameInProgress} />;
+        return (
+          <StartScreen 
+            onStart={handleContinueGame} 
+            onNewGame={handleNewGame} 
+            isGameInProgress={isGameInProgress}
+            isMobileMode={isMobileMode}
+            setIsMobileMode={setIsMobileMode}
+          />
+        );
       case 'playing':
         return (
           <GameUI
@@ -78,12 +94,21 @@ export default function Home() {
             onGameWin={handleGameWin}
             onGameLose={handleGameLose}
             onReturnToMenu={handleReturnToMenu}
+            isMobileMode={isMobileMode}
           />
         );
       case 'game-over':
         return <GameOverScreen score={gameState.score} onRestart={handleRestart} won={gameWon} customMessage={customMessage} />;
       default:
-        return <StartScreen onStart={handleContinueGame} onNewGame={handleNewGame} isGameInProgress={isGameInProgress} />;
+        return (
+          <StartScreen 
+            onStart={handleContinueGame} 
+            onNewGame={handleNewGame} 
+            isGameInProgress={isGameInProgress}
+            isMobileMode={isMobileMode}
+            setIsMobileMode={setIsMobileMode}
+          />
+        );
     }
   };
 
