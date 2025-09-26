@@ -53,7 +53,6 @@ interface GameUIProps {
 export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
-  const [playerVelocity, setPlayerVelocity] = useState(initialState.playerVelocity);
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
   const [activeMinigame, setActiveMinigame] = useState<'navigation' | 'defense' | 'life-support' | null>(null);
@@ -70,6 +69,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const gameLoopRef = useRef<number>();
   const isInitialMount = useRef(true);
+  const playerVelocity = useRef(initialState.playerVelocity);
 
   const {
     score,
@@ -97,7 +97,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // This is a stable function to update state that can be used in callbacks
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
-  }, []);
+  }, [setGameState]);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
@@ -132,8 +132,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   // Bubble up state changes to parent
   useEffect(() => {
-    onStateChange({ ...gameState, playerPosition, playerVelocity });
-  }, [gameState, playerPosition, playerVelocity, onStateChange]);
+    onStateChange({ ...gameState, playerPosition, playerVelocity: playerVelocity.current });
+  }, [gameState, playerPosition, onStateChange]);
 
 
   const triggerInteraction = useCallback(() => {
@@ -353,69 +353,68 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   // Game loop for smooth movement
   useEffect(() => {
-    const gameLoop = () => {
-        const isMovementPaused = !isGameActive || activeMinigame !== null;
+    const loop = () => {
+        const isMovementPaused = isPaused || activeMinigame !== null;
+
         if (!isMovementPaused) {
-            setPlayerVelocity(prevVelocity => {
-                let { x: velX, y: velY } = prevVelocity;
+            let { x: velX, y: velY } = playerVelocity.current;
 
-                const acceleration = 0.5;
-                const friction = 0.9;
-                const maxSpeed = 7;
+            const acceleration = 0.5;
+            const friction = 0.9;
+            const maxSpeed = 7;
 
-                if (!isMobileMode) {
-                    if (keysPressed.current['w']) velY -= acceleration;
-                    if (keysPressed.current['s']) velY += acceleration;
-                    if (keysPressed.current['a']) velX -= acceleration;
-                    if (keysPressed.current['d']) velX += acceleration;
-                }
+            if (!isMobileMode) {
+                if (keysPressed.current['w']) velY -= acceleration;
+                if (keysPressed.current['s']) velY += acceleration;
+                if (keysPressed.current['a']) velX -= acceleration;
+                if (keysPressed.current['d']) velX += acceleration;
+            }
 
-                if (isMobileMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
-                    velX += joystickVector.x * acceleration;
-                    velY += joystickVector.y * acceleration;
-                }
+            if (isMobileMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
+                velX += joystickVector.x * acceleration;
+                velY += joystickVector.y * acceleration;
+            }
 
-                const speed = Math.hypot(velX, velY);
-                if (speed > maxSpeed) {
-                    velX = (velX / speed) * maxSpeed;
-                    velY = (velY / speed) * maxSpeed;
-                }
+            const speed = Math.hypot(velX, velY);
+            if (speed > maxSpeed) {
+                velX = (velX / speed) * maxSpeed;
+                velY = (velY / speed) * maxSpeed;
+            }
 
-                velX *= friction;
-                velY *= friction;
+            velX *= friction;
+            velY *= friction;
+            
+            if (Math.abs(velX) < 0.1) velX = 0;
+            if (Math.abs(velY) < 0.1) velY = 0;
+
+            playerVelocity.current = { x: velX, y: velY };
+            
+            setPlayerPosition(prevPosition => {
+                let { x: posX, y: posY } = prevPosition;
+
+                posX += velX;
+                posY += velY;
+
+                const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
+                const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
                 
-                if (Math.abs(velX) < 0.1) velX = 0;
-                if (Math.abs(velY) < 0.1) velY = 0;
-                
-                setPlayerPosition(prevPosition => {
-                    let { x: posX, y: posY } = prevPosition;
+                if (posX !== clampedX) velX *= -0.5;
+                if (posY !== clampedY) velY *= -0.5;
 
-                    posX += velX;
-                    posY += velY;
-
-                    const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(posX, WORLD_WIDTH - PLAYER_SIZE / 2));
-                    const clampedY = Math.max(PLAYER_SIZE / 2, Math.min(posY, WORLD_HEIGHT - PLAYER_SIZE / 2));
-                    
-                    if (posX !== clampedX) velX *= -0.5;
-                    if (posY !== clampedY) velY *= -0.5;
-
-                    return { x: clampedX, y: clampedY };
-                });
-
-                return { x: velX, y: velY };
+                return { x: clampedX, y: clampedY };
             });
         }
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
+        gameLoopRef.current = requestAnimationFrame(loop);
     };
 
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
+    gameLoopRef.current = requestAnimationFrame(loop);
 
     return () => {
         if (gameLoopRef.current) {
             cancelAnimationFrame(gameLoopRef.current);
         }
     };
-}, [isGameActive, activeMinigame, isMobileMode, joystickVector]);
+  }, [isPaused, activeMinigame, isMobileMode, joystickVector]);
   
   // Camera follow animation and player clamping
   useEffect(() => {
@@ -822,6 +821,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
 
 
+
+    
 
     
 
