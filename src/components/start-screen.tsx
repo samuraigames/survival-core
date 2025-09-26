@@ -1,10 +1,10 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
 import { Rocket, Clock, Keyboard, ShieldAlert, Play, Smartphone, Laptop } from "lucide-react";
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface StartScreenProps {
   onStart: () => void;
@@ -21,7 +21,6 @@ const Key = ({ children }: { children: React.ReactNode }) => (
 );
 
 const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIsMobileMode }: StartScreenProps) => {
-  const isMobile = useIsMobile();
 
   return (
     <div className="relative w-full min-h-screen bg-background text-foreground">
@@ -68,10 +67,21 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
                 {isGameInProgress ? 'NEW GAME' : 'BEGIN MISSION'}
               </Button>
             </div>
+             <div className="mt-6 z-50">
+                <Button
+                    onClick={() => setIsMobileMode(!isMobileMode)}
+                    size="lg"
+                    variant="secondary"
+                    className="font-headline text-lg px-8 py-4 rounded-full shadow-md"
+                >
+                    {isMobileMode ? <Smartphone className="mr-3 h-6 w-6" /> : <Laptop className="mr-3 h-6 w-6" />}
+                    Mode: {isMobileMode ? 'Mobile' : 'PC'}
+                </Button>
+             </div>
           </motion.div>
 
           <motion.div 
-            className="w-full mb-24" // Added margin-bottom to avoid overlap with fixed button
+            className="w-full mb-24"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.8 }}
@@ -110,7 +120,7 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
                 <CardContent className="flex flex-col items-center text-center gap-4">
                     <div>
                       <p className="font-bold">Engine Overload</p>
-                      <p className="text-sm text-muted-foreground">The engine will overload in 10 minutes. Each hit you take reduces this time by 2 seconds.</p>
+                      <p className="text-sm text-muted-foreground">The engine will overload in 10 minutes. Each hit you take reduces this time by 2 minutes.</p>
                     </div>
                     <div>
                       <p className="font-bold">Hull Integrity</p>
@@ -139,20 +149,6 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
           </motion.div>
         </div>
       </div>
-      
-      {isMobile && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <Button
-            onClick={() => setIsMobileMode(!isMobileMode)}
-            size="lg"
-            variant="secondary"
-            className="font-headline text-lg px-8 py-4 rounded-full shadow-md"
-          >
-            {isMobileMode ? <Smartphone className="mr-3 h-6 w-6" /> : <Laptop className="mr-3 h-6 w-6" />}
-            Mode: {isMobileMode ? 'Mobile' : 'PC'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
