@@ -1,6 +1,6 @@
 "use client"
-import React, { useState, useRef, useCallback } from 'react';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, useMotionValue, animate } from 'framer-motion';
 
 interface JoystickProps {
     onMove: (vector: { x: number; y: number }) => void;
@@ -10,23 +10,38 @@ const JOYSTICK_SIZE = 100;
 const KNOB_SIZE = 50;
 
 const Joystick: React.FC<JoystickProps> = ({ onMove }) => {
-    const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const knobX = useMotionValue(0);
     const knobY = useMotionValue(0);
+    const isDragging = useRef(false);
 
-    const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent) => {
+    const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        isDragging.current = true;
+        (event.target as HTMLElement).setPointerCapture(event.pointerId);
+        handleDrag(event);
+    };
+    
+    const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (isDragging.current) {
+            handleDrag(event);
+        }
+    };
+    
+    const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+        isDragging.current = false;
+        (event.target as HTMLElement).releasePointerCapture(event.pointerId);
+        handleDragEnd();
+    };
+
+    const handleDrag = (event: React.PointerEvent<HTMLDivElement>) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         
-        const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
-        const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
-
-        const x = clientX - (rect.left + rect.width / 2);
-        const y = clientY - (rect.top + rect.height / 2);
+        const x = event.clientX - (rect.left + rect.width / 2);
+        const y = event.clientY - (rect.top + rect.height / 2);
 
         const angle = Math.atan2(y, x);
-        const distance = Math.min(Math.hypot(x, y), JOYSTICK_SIZE / 2 - KNOB_SIZE / 4);
+        const distance = Math.min(Math.hypot(x, y), JOYSTICK_SIZE / 2);
 
         const newX = Math.cos(angle) * distance;
         const newY = Math.sin(angle) * distance;
@@ -34,7 +49,7 @@ const Joystick: React.FC<JoystickProps> = ({ onMove }) => {
         knobX.set(newX);
         knobY.set(newY);
         
-        const maxDistance = JOYSTICK_SIZE / 2 - KNOB_SIZE / 4;
+        const maxDistance = JOYSTICK_SIZE / 2;
         onMove({
             x: newX / maxDistance,
             y: newY / maxDistance,
@@ -42,10 +57,9 @@ const Joystick: React.FC<JoystickProps> = ({ onMove }) => {
     };
 
     const handleDragEnd = () => {
-        setIsDragging(false);
-        knobX.set(0);
-        knobY.set(0);
         onMove({ x: 0, y: 0 });
+        animate(knobX, 0, { type: 'spring', stiffness: 400, damping: 20 });
+        animate(knobY, 0, { type: 'spring', stiffness: 400, damping: 20 });
     };
 
     return (
@@ -60,13 +74,10 @@ const Joystick: React.FC<JoystickProps> = ({ onMove }) => {
                 alignItems: 'center',
                 touchAction: 'none',
             }}
-            onPointerDown={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-            }}
-            onPointerMove={isDragging ? handleDrag : undefined}
-            onPointerUp={handleDragEnd}
-            onPointerLeave={isDragging ? handleDragEnd : undefined}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
         >
             <motion.div
                 className="rounded-full bg-accent/80 shadow-md border-2 border-accent-foreground/50"

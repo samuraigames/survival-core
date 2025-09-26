@@ -52,7 +52,7 @@ interface GameUIProps {
 export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
-  const [playerVelocity, setPlayerVelocity] = useState(initialState.playerVelocity);
+  const playerVelocity = useRef(initialState.playerVelocity);
 
   const [joystickVector, setJoystickVector] = useState({ x: 0, y: 0 });
   const [interaction, setInteraction] = useState<{prompt: string, zone: ZoneName} | null>(null);
@@ -136,18 +136,25 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   // Bubble up state changes to parent
   useEffect(() => {
-    onStateChange({ ...gameState, playerPosition, playerVelocity });
-  }, [gameState, playerPosition, playerVelocity, onStateChange]);
+    onStateChange({ ...gameState, playerPosition, playerVelocity: playerVelocity.current });
+  }, [gameState, playerPosition, onStateChange]);
 
 
   const triggerInteraction = useCallback(() => {
     if (!isGameActive || !interaction || activeMinigame) return;
 
-    if (interaction.zone === 'NAV_CONSOLE' && isNavCourseDeviating) {
+    const canInteract = 
+      (interaction.zone === 'NAV_CONSOLE' && isNavCourseDeviating) ||
+      (interaction.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) ||
+      (interaction.zone === 'LIFE_SUPPORT' && isLifeSupportFailing);
+
+    if (!canInteract) return;
+
+    if (interaction.zone === 'NAV_CONSOLE') {
       setActiveMinigame('navigation');
-    } else if (interaction.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) { 
+    } else if (interaction.zone === 'DEFENSE_CONSOLE') { 
       setActiveMinigame('defense');
-    } else if (interaction.zone === 'LIFE_SUPPORT' && isLifeSupportFailing) {
+    } else if (interaction.zone === 'LIFE_SUPPORT') {
       setActiveMinigame('life-support');
     }
   }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isLifeSupportFailing, isUnderAsteroidAttack]);
@@ -366,13 +373,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // Game loop for smooth movement
   useEffect(() => {
     const loop = () => {
-        if (!isGameActiveRef.current || activeMinigameRef.current !== null) {
-            gameLoopRef.current = requestAnimationFrame(loop);
-            return;
-        }
-
-        setPlayerVelocity(prevVelocity => {
-            let { x: velX, y: velY } = prevVelocity;
+        if (isGameActiveRef.current && activeMinigameRef.current === null) {
+            let { x: velX, y: velY } = playerVelocity.current;
             const acceleration = 0.5;
             const friction = 0.9;
             const maxSpeed = 7;
@@ -383,8 +385,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
                 if (keysPressed.current['a']) velX -= acceleration;
                 if (keysPressed.current['d']) velX += acceleration;
             } else {
-                velX += joystickVectorRef.current.x * acceleration;
-                velY += joystickVectorRef.current.y * acceleration;
+                velX += joystickVectorRef.current.x * acceleration * 1.5;
+                velY += joystickVectorRef.current.y * acceleration * 1.5;
             }
 
             const speed = Math.hypot(velX, velY);
@@ -398,7 +400,9 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             
             if (Math.abs(velX) < 0.1) velX = 0;
             if (Math.abs(velY) < 0.1) velY = 0;
-
+            
+            playerVelocity.current = { x: velX, y: velY };
+            
             setPlayerPosition(prevPosition => {
                 let newX = prevPosition.x + velX;
                 let newY = prevPosition.y + velY;
@@ -408,9 +412,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
                 
                 return { x: newX, y: newY };
             });
-
-            return { x: velX, y: velY };
-        });
+        }
 
         gameLoopRef.current = requestAnimationFrame(loop);
     };
@@ -424,18 +426,15 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     };
   }, []);
   
-  // Camera follow animation and player clamping
+  // Camera follow animation
   useEffect(() => {
     if (scope.current) {
-        // Calculate camera's ideal top-left corner to center the player
         const idealCameraX = -playerPosition.x + SHIP_WIDTH / 2;
         const idealCameraY = -playerPosition.y + SHIP_HEIGHT / 2;
 
-        // Clamp the camera's position so it doesn't show areas outside the world
         const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, idealCameraX));
         const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, idealCameraY));
 
-        // Animate the camera to its new clamped position without spring for a locked feel
         animate(scope.current, { x: clampedCameraX, y: clampedCameraY }, { duration: 0 });
     }
   }, [playerPosition, animate, scope]);
@@ -493,7 +492,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
       (interaction?.zone === 'DEFENSE_CONSOLE' && isUnderAsteroidAttack) ||
       (interaction?.zone === 'LIFE_SUPPORT' && isLifeSupportFailing);
 
-  const interactionText = interaction?.prompt.replace('Press [E] to ', '');
+  const interactionText = interaction?.prompt.replace(/Press \[E\] to /, '') || 'Interact';
+
 
   return (
     <div
@@ -780,7 +780,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
             <div className="absolute bottom-8 right-5 pointer-events-auto">
               <Button
                 onClick={triggerInteraction}
-                className="rounded-full w-20 h-20 text-lg bg-accent/80 hover:bg-accent border-2 border-accent-foreground/50 shadow-lg backdrop-blur-sm"
+                className="rounded-full w-20 h-20 text-lg bg-accent/80 hover:bg-accent border-2 border-accent-foreground/50 shadow-lg backdrop-blur-sm capitalize"
               >
                 {interactionText}
               </Button>
