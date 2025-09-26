@@ -1,13 +1,17 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
+import { ArrowDown, ArrowUp } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface NavigationMinigameProps {
   open: boolean;
   onClose: (success: boolean, manualClose: boolean) => void;
   difficulty: number;
+  isMobileMode: boolean;
 }
 
 const GAME_WIDTH = 500;
@@ -16,7 +20,7 @@ const SHIP_SIZE = 15;
 const PATH_WIDTH = 40; // Wider path for easier gameplay
 const PATH_LENGTH = 1000; // Longer path for continuous scrolling
 
-const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, difficulty }) => {
+const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, difficulty, isMobileMode }) => {
   const [shipY, setShipY] = useState(GAME_HEIGHT / 2);
   const [path, setPath] = useState<number[]>([]);
   const [progress, setProgress] = useState(0);
@@ -27,6 +31,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   const gameLoopRef = useRef<number>();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const lastShiftTimeRef = useRef(0);
+  const touchState = useRef<'up' | 'down' | null>(null);
 
   const handleClose = useCallback((success: boolean, manual: boolean) => {
     if (isClosing) return;
@@ -59,6 +64,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
       setIsClosing(false);
       lastShiftTimeRef.current = Date.now();
       keysPressed.current = {};
+      touchState.current = null;
     } else {
         if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     }
@@ -74,8 +80,13 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     setShipY(prevY => {
         const speed = 3;
         let newY = prevY;
-        if(keysPressed.current['arrowup'] || keysPressed.current['w']) newY -= speed;
-        if(keysPressed.current['arrowdown'] || keysPressed.current['s']) newY += speed;
+        if (!isMobileMode) {
+          if(keysPressed.current['arrowup'] || keysPressed.current['w']) newY -= speed;
+          if(keysPressed.current['arrowdown'] || keysPressed.current['s']) newY += speed;
+        } else {
+          if (touchState.current === 'up') newY -= speed;
+          if (touchState.current === 'down') newY += speed;
+        }
         return Math.max(0, Math.min(GAME_HEIGHT - SHIP_SIZE, newY));
     });
 
@@ -112,7 +123,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     }
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, handleClose, path, progress, shipY, pathYOffset, difficulty]);
+  }, [gameOver, handleClose, path, progress, shipY, pathYOffset, difficulty, isMobileMode]);
 
   useEffect(() => {
     if (open && gameOver === null) {
@@ -125,14 +136,16 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (isMobileMode) return;
     e.preventDefault();
     keysPressed.current[e.key.toLowerCase()] = true;
-  }, []);
+  }, [isMobileMode]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    if (isMobileMode) return;
     e.preventDefault();
     keysPressed.current[e.key.toLowerCase()] = false;
-  }, []);
+  }, [isMobileMode]);
 
   useEffect(() => {
     if(open) {
@@ -158,7 +171,12 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
       <DialogContent className="max-w-xl bg-card border-accent text-foreground">
         <DialogHeader>
           <DialogTitle className="font-headline text-accent">Navigation Correction</DialogTitle>
-          <DialogDescription>The course is unstable! Use UP/DOWN or W/S to stay within the quantum tunnel.</DialogDescription>
+          <DialogDescription>
+            {isMobileMode 
+                ? "The course is unstable! Use the on-screen buttons to stay within the quantum tunnel."
+                : "The course is unstable! Use UP/DOWN or W/S to stay within the quantum tunnel."
+            }
+          </DialogDescription>
         </DialogHeader>
         <div className="relative overflow-hidden rounded-md border" style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}>
             <div className="absolute inset-0 bg-black" />
@@ -177,6 +195,30 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
                     />
                 </motion.g>
             </svg>
+
+            {/* Mobile Controls */}
+            {isMobileMode && (
+                <div className="absolute inset-y-0 right-4 flex flex-col justify-center gap-4 z-10">
+                    <Button
+                        size="icon"
+                        className="w-16 h-16 rounded-full bg-accent/70 text-accent-foreground backdrop-blur-sm"
+                        onPointerDown={() => touchState.current = 'up'}
+                        onPointerUp={() => touchState.current = null}
+                        onPointerLeave={() => touchState.current = null}
+                    >
+                        <ArrowUp className="w-8 h-8" />
+                    </Button>
+                    <Button
+                        size="icon"
+                        className="w-16 h-16 rounded-full bg-accent/70 text-accent-foreground backdrop-blur-sm"
+                        onPointerDown={() => touchState.current = 'down'}
+                        onPointerUp={() => touchState.current = null}
+                        onPointerLeave={() => touchState.current = null}
+                    >
+                        <ArrowDown className="w-8 h-8" />
+                    </Button>
+                </div>
+            )}
 
             {/* Progress Bar */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-4/5 h-2 bg-muted rounded-full">
@@ -204,3 +246,6 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 };
 
 export default NavigationMinigame;
+
+
+    

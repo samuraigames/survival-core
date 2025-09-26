@@ -97,14 +97,14 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   // This is a stable function to update state that can be used in callbacks
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
     setGameState(updater);
-  }, []);
+  }, [setGameState]);
 
   const takeHit = useCallback(() => {
     setIsShaking(true);
     handleStateUpdate(prevState => ({ 
       ...prevState,
       shipHits: prevState.shipHits + 1,
-      engineTime: Math.max(0, prevState.engineTime - 2)
+      engineTime: Math.max(0, prevState.engineTime - 120) // 2 minutes
     }));
     setTimeout(() => setIsShaking(false), 500);
   }, [handleStateUpdate]);
@@ -357,6 +357,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
         const isMovementPaused = isPaused || activeMinigame !== null;
 
         if (!isMovementPaused) {
+            
             let { x: velX, y: velY } = playerVelocity.current;
 
             const acceleration = 0.5;
@@ -800,12 +801,14 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
           open={activeMinigame === 'navigation'}
           onClose={(success, manual) => onMinigameClose('navigation', success, manual)}
           difficulty={eventIntensity}
+          isMobileMode={isMobileMode}
         />
         <AsteroidDefenseMinigame
           open={activeMinigame === 'defense'}
           onClose={(success) => onMinigameClose('defense', success, false)}
           difficulty={eventIntensity}
           isUnderAttack={isUnderAsteroidAttack}
+          isMobileMode={isMobileMode}
         />
         <LifeSupportMinigame
           open={activeMinigame === 'life-support'}
@@ -821,6 +824,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
 
 
+
+    
 
     
 
