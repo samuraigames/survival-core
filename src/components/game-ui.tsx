@@ -739,7 +739,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
             {/* Player */}
             <motion.div
-                className="absolute flex items-center justify-center rounded-full bg-accent z-10"
+                className="absolute flex items-center justify-center rounded-full bg-white z-10"
                 animate={{ 
                     x: playerPosition.x, 
                     y: playerPosition.y 
@@ -748,14 +748,14 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
                 style={{
                     width: PLAYER_SIZE,
                     height: PLAYER_SIZE,
-                    boxShadow: '0 0 15px hsl(var(--accent))',
+                    boxShadow: '0 0 15px #ffffff',
                     transform: 'translate(-50%, -50%)',
                     top: 0,
                     left: 0,
                 }}
                 >
                 <div 
-                    className="w-4/5 h-2/5 bg-accent-foreground/50 rounded-full"
+                    className="w-4/5 h-2/5 bg-background/50 rounded-full"
                     style={{
                     boxShadow: 'inset 0 0 5px rgba(0,0,0,0.4)',
                     }}
@@ -833,4 +833,5 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     
 
     
+
 
