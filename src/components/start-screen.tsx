@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
 import { Rocket, Clock, Keyboard, ShieldAlert, Play, Smartphone, Laptop } from "lucide-react";
+import Image from "next/image";
 
 interface StartScreenProps {
   onStart: () => void;
@@ -30,11 +31,16 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="mt-8"
+            className="mt-8 flex flex-col items-center"
           >
-            <h1 className="text-5xl sm:text-6xl md:text-8xl font-headline font-bold text-primary-foreground tracking-tighter">
-              SURVIVAL CORE
-            </h1>
+            <Image 
+              src="/logo.png"
+              alt="Survival Core Logo"
+              width={400}
+              height={285}
+              className="w-full max-w-sm md:max-w-md"
+              priority
+            />
             <p className="mt-4 text-lg sm:text-xl md:text-2xl text-muted-foreground font-body max-w-3xl mx-auto">
               You are the last crew member. Your mission: survive for 5 minutes to reach Earth. Keep the ship running by managing critical systems, but be warned: the ship's engine is unstable and will overload in 10 minutes.
             </p>
@@ -154,3 +160,5 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
 };
 
 export default StartScreen;
+
+    
