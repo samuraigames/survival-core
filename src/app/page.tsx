@@ -92,6 +92,21 @@ export default function Home() {
       setGameState(initialGameState);
   }, []);
 
+  const handleRotateAndLock = async () => {
+    try {
+        if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+        }
+        // @ts-ignore
+        if (screen.orientation && screen.orientation.lock) {
+            // @ts-ignore
+            await screen.orientation.lock('landscape');
+        }
+    } catch (err) {
+        console.error("Could not lock orientation:", err);
+    }
+  };
+
   const renderGameStatus = () => {
     switch (gameStatus) {
       case 'start':
@@ -102,6 +117,8 @@ export default function Home() {
             isGameInProgress={isGameInProgress}
             isMobileMode={isMobileMode}
             setIsMobileMode={setIsMobileMode}
+            onRotate={handleRotateAndLock}
+            isMobile={isMobile}
           />
         );
       case 'playing':
@@ -125,6 +142,8 @@ export default function Home() {
             isGameInProgress={isGameInProgress}
             isMobileMode={isMobileMode}
             setIsMobileMode={setIsMobileMode}
+            onRotate={handleRotateAndLock}
+            isMobile={isMobile}
           />
         );
     }

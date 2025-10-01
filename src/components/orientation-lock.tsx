@@ -31,12 +31,21 @@ const OrientationLock: React.FC<OrientationLockProps> = ({ children, isMobile })
 
     checkOrientation();
 
+    // Re-check on both resize and orientation change
     window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
+    if (window.screen.orientation) {
+        window.screen.orientation.addEventListener('change', checkOrientation);
+    } else {
+        window.addEventListener('orientationchange', checkOrientation);
+    }
 
     return () => {
       window.removeEventListener('resize', checkOrientation);
-      window.removeEventListener('orientationchange', checkOrientation);
+      if (window.screen.orientation) {
+        window.screen.orientation.removeEventListener('change', checkOrientation);
+      } else {
+        window.removeEventListener('orientationchange', checkOrientation);
+      }
     };
   }, [isMobile]);
 
@@ -65,7 +74,7 @@ const OrientationLock: React.FC<OrientationLockProps> = ({ children, isMobile })
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ visibility: isLandscape ? 'visible' : 'hidden' }}>
+      <div className={!isLandscape ? 'hidden' : ''}>
         {children}
       </div>
     </div>
