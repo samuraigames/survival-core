@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import GameUI from '@/components/game-ui';
 import StartScreen from '@/components/start-screen';
 import GameOverScreen from '@/components/game-over-screen';
-import { useIsMobile } from '@/hooks/use-mobile';
+import useIsMobile from '@/hooks/use-mobile';
 import OrientationLock from '@/components/orientation-lock';
 
 type GameStatus = 'start' | 'playing' | 'game-over';
