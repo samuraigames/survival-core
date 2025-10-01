@@ -4,8 +4,25 @@ import { useState, useCallback, useEffect } from 'react';
 import GameUI from '@/components/game-ui';
 import StartScreen from '@/components/start-screen';
 import GameOverScreen from '@/components/game-over-screen';
-import useIsMobile from '@/hooks/use-mobile';
 import OrientationLock from '@/components/orientation-lock';
+
+const MOBILE_BREAKPOINT = 768;
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+        setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  return !!isMobile;
+};
 
 type GameStatus = 'start' | 'playing' | 'game-over';
 
