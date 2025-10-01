@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ScreenRotation } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface OrientationLockProps {
@@ -54,7 +55,7 @@ const OrientationLock: React.FC<OrientationLockProps> = ({ children, isMobile })
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center text-center p-4"
           >
-            <ScreenRotation className="w-16 h-16 text-accent mb-4 animate-pulse" />
+            <RotateCw className="w-16 h-16 text-accent mb-4 animate-pulse" />
             <h1 className="text-2xl font-headline text-foreground mb-2">
               Please Rotate Your Device
             </h1>
