@@ -31,20 +31,23 @@ const OrientationLock: React.FC<OrientationLockProps> = ({ children, isMobile })
 
     checkOrientation();
 
+    // Use a function reference for adding and removing the listener
+    const orientationChangeHandler = () => checkOrientation();
+
     // Re-check on both resize and orientation change
-    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('resize', orientationChangeHandler);
     if (window.screen.orientation) {
-        window.screen.orientation.addEventListener('change', checkOrientation);
+        window.screen.orientation.addEventListener('change', orientationChangeHandler);
     } else {
-        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('orientationchange', orientationChangeHandler);
     }
 
     return () => {
-      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('resize', orientationChangeHandler);
       if (window.screen.orientation) {
-        window.screen.orientation.removeEventListener('change', checkOrientation);
+        window.screen.orientation.removeEventListener('change', orientationChangeHandler);
       } else {
-        window.removeEventListener('orientationchange', checkOrientation);
+        window.removeEventListener('orientationchange', orientationChangeHandler);
       }
     };
   }, [isMobile]);
@@ -74,7 +77,7 @@ const OrientationLock: React.FC<OrientationLockProps> = ({ children, isMobile })
           </motion.div>
         )}
       </AnimatePresence>
-      <div className={!isLandscape ? 'hidden' : ''}>
+      <div className={!isLandscape ? 'hidden' : 'w-full h-full'}>
         {children}
       </div>
     </div>

@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import { Rocket, Clock, Keyboard, ShieldAlert, Play, Smartphone, Laptop, RotateCw } from "lucide-react";
+import { Rocket, Clock, Keyboard, ShieldAlert, Play, Smartphone, Laptop } from "lucide-react";
 
 interface StartScreenProps {
   onStart: () => void;
@@ -12,7 +12,6 @@ interface StartScreenProps {
   isGameInProgress: boolean;
   isMobileMode: boolean;
   setIsMobileMode: (isMobile: boolean) => void;
-  onRotate: () => void;
   isMobile: boolean;
 }
 
@@ -22,7 +21,7 @@ const Key = ({ children }: { children: React.ReactNode }) => (
     </div>
 );
 
-const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIsMobileMode, onRotate, isMobile }: StartScreenProps) => {
+const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIsMobileMode, isMobile }: StartScreenProps) => {
 
   return (
     <div className="relative w-full min-h-screen bg-background text-foreground">
@@ -79,17 +78,6 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
                     {isMobileMode ? <Smartphone className="mr-3 h-6 w-6" /> : <Laptop className="mr-3 h-6 w-6" />}
                     Mode: {isMobileMode ? 'Mobile' : 'PC'}
                 </Button>
-                {isMobile && (
-                   <Button
-                        onClick={onRotate}
-                        size="lg"
-                        variant="secondary"
-                        className="font-headline text-lg px-8 py-4 rounded-full shadow-md"
-                    >
-                        <RotateCw className="mr-3 h-6 w-6" />
-                        Rotate Device
-                    </Button>
-                )}
              </div>
           </motion.div>
 
