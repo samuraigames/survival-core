@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "Level": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Level",
+      "type": "object",
+      "description": "Represents a game level with its associated properties.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the level."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the level (e.g., Easy, Medium, Hard, Impossible)."
+        },
+        "arrivalTime": {
+          "type": "number",
+          "description": "Time in seconds before reaching Earth for this level."
+        },
+        "engineOverloadTime": {
+          "type": "number",
+          "description": "Time in seconds before the engine overloads for this level."
+        },
+        "problemFrequency": {
+          "type": "number",
+          "description": "Frequency in seconds at which problems appear in this level."
+        },
+        "achievementId": {
+          "type": "string",
+          "description": "Reference to the Achievement earned upon completion of this level. (Relationship: Level 1:1 Achievement)"
+        },
+        "unlocksNextLevelId": {
+          "type": "string",
+          "description": "Reference to the next Level unlocked upon completion of this level. Null if it unlocks end credits. (Relationship: Level 1:1 Level)"
+        },
+        "menuDescription": {
+          "type": "string",
+          "description": "Description displayed in the menu for this level."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "arrivalTime",
+        "engineOverloadTime",
+        "problemFrequency",
+        "achievementId"
+      ]
+    },
+    "Achievement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Achievement",
+      "type": "object",
+      "description": "Represents an achievement earned by the player.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the achievement."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the achievement (e.g., First Step, Wasn't that hard?)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short description of the achievement."
+        },
+        "completionDateTime": {
+          "type": "string",
+          "description": "Date and time when the achievement was completed.",
+          "format": "date-time"
+        },
+        "badgeColor": {
+          "type": "string",
+          "description": "Color of the badge representing the achievement (gray = locked, gold = unlocked)."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description"
+      ]
+    },
+    "PlayerProgress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlayerProgress",
+      "type": "object",
+      "description": "Represents the player's overall progress in the game.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the player progress entry."
+        },
+        "unlockedLevelIds": {
+          "type": "array",
+          "description": "References to Levels unlocked by the player.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "completedAchievementIds": {
+          "type": "array",
+          "description": "References to Achievements completed by the player.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "endCreditsUnlocked": {
+          "type": "boolean",
+          "description": "Indicates whether the end credits have been unlocked."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/levels/{levelId}",
+        "definition": {
+          "entityName": "Level",
+          "schema": {
+            "$ref": "#/backend/entities/Level"
+          },
+          "description": "Stores the definitions for each level in the game. Accessible to all players but only modifiable by admins (not defined here).",
+          "params": [
+            {
+              "name": "levelId",
+              "description": "Unique identifier for the level."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/achievements/{achievementId}",
+        "definition": {
+          "entityName": "Achievement",
+          "schema": {
+            "$ref": "#/backend/entities/Achievement"
+          },
+          "description": "Stores the definitions for each achievement in the game. Accessible to all players but only modifiable by admins (not defined here).",
+          "params": [
+            {
+              "name": "achievementId",
+              "description": "Unique identifier for the achievement."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/playerProgress",
+        "definition": {
+          "entityName": "PlayerProgress",
+          "schema": {
+            "$ref": "#/backend/entities/PlayerProgress"
+          },
+          "description": "Stores the progress data for each player, including unlocked levels and completed achievements. Uses path-based ownership; only the authenticated user can read/write their own document.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user. Corresponds to the Firebase auth UID."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure prioritizes authorization independence and efficient data retrieval for the 'Survival Core' game. It leverages path-based ownership for player-specific data and a dedicated collection for global level/achievement definitions. This design avoids `get()` calls in security rules, enables atomic operations, and supports secure list operations.\n\nLevels and Achievements are stored in top-level collections to enable easy querying and management, since the number of these will not grow with the number of players. Player progress is stored under the `/users/{userId}` path to ensure that each player can only access their own progress data. This structure achieves Authorization Independence, as the PlayerProgress document does not rely on any other documents in order to define access.\n\nThis structure facilitates secure `list` operations because the levels and achievements are in top-level collections, and player progress is segmented by user ID. The security rules can efficiently filter data based on the user's authentication state without needing complex queries or data lookups."
+  }
+}
