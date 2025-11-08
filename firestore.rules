@@ -9,7 +9,7 @@
  * Data Structure:
  * - /levels/{levelId}: Stores publicly readable level definitions.
  * - /achievements/{achievementId}: Stores publicly readable achievement definitions.
- * - /users/{userId}/playerProgress: Stores player-specific progress data, accessible only to the owning user.
+ * - /users/{userId}/playerProgress/main: Stores player-specific progress data, accessible only to the owning user.
  *
  * Key Security Decisions:
  * - Public Read-Only Collections: The 'levels' and 'achievements' collections are readable by all users.
@@ -46,26 +46,14 @@ service cloud.firestore {
     }
 
     /**
-     * @description Enforces strict user ownership for player progress data.
-     * @path /users/{userId}/playerProgress
-     * @allow get: if isSignedIn() && isOwner(userId); Example: User 'abc' can get their own progress data.
-     * @allow list: if isSignedIn() && isOwner(userId); Example: User 'abc' can list their own progress data (though only one document will exist).
-     * @allow create: if isSignedIn() && isOwner(userId); Example: User 'abc' can create their own progress data.
-     * @allow update: if isSignedIn() && isExistingOwner(userId); Example: User 'abc' can update their existing progress data.
-     * @allow delete: if isSignedIn() && isExistingOwner(userId); Example: User 'abc' can delete their existing progress data.
-     * @deny get: if !isSignedIn() || !isOwner(userId); Example: Anonymous user or user 'def' cannot get user 'abc' progress data.
-     * @deny list: if !isSignedIn() || !isOwner(userId); Example: Anonymous user or user 'def' cannot list user 'abc' progress data.
-     * @deny create: if !isSignedIn() || !isOwner(userId); Example: Anonymous user or user 'def' cannot create progress data for user 'abc'.
-     * @deny update: if !isSignedIn() || !isExistingOwner(userId); Example: Anonymous user or user 'def' cannot update user 'abc' progress data.
-     * @deny delete: if !isSignedIn() || !isExistingOwner(userId); Example: Anonymous user or user 'def' cannot delete user 'abc' progress data.
+     * @description Enforces strict user ownership for the single player progress document.
+     * @path /users/{userId}/playerProgress/main
+     * @allow read, write: if isSignedIn() && isOwner(userId); Example: User 'abc' can read/write their own progress data.
+     * @deny read, write: if !isSignedIn() || !isOwner(userId); Example: Anonymous user or user 'def' cannot access user 'abc' progress data.
      * @principle Enforces document ownership for all read and write operations on player progress data.
      */
-    match /users/{userId}/playerProgress {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    match /users/{userId}/playerProgress/main {
+      allow read, write: if isSignedIn() && isOwner(userId);
     }
 
     /**
@@ -80,13 +68,6 @@ service cloud.firestore {
      */
     function isOwner(userId) {
       return request.auth.uid == userId;
-    }
-
-        /**
-     * @description Helper function to check if the request is made by the owner of the resource, based on the userId, and that the document already exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
     }
   }
 }
