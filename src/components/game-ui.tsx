@@ -10,7 +10,7 @@ import LifeSupportMinigame from './life-support-minigame';
 import Joystick from './joystick';
 import Starfield from './starfield';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, Fan, Home } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, Fan, Home, HeartPulse } from 'lucide-react';
 import { motion, AnimatePresence, useAnimate } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -409,23 +409,6 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
                 // --- World Boundaries (applies to both PC and Mobile) ---
                 newX = Math.max(PLAYER_SIZE / 2, Math.min(newX, WORLD_WIDTH - PLAYER_SIZE / 2));
                 newY = Math.max(PLAYER_SIZE / 2, Math.min(newY, WORLD_HEIGHT - PLAYER_SIZE / 2));
-
-                // --- Mobile-Only Viewport Boundaries ---
-                if (isMobileModeRef.current) {
-                    const cameraX = -newX + SHIP_WIDTH / 2;
-                    const cameraY = -newY + SHIP_HEIGHT / 2;
-
-                    const clampedCameraX = Math.max(-(WORLD_WIDTH - SHIP_WIDTH), Math.min(0, cameraX));
-                    const clampedCameraY = Math.max(-(WORLD_HEIGHT - SHIP_HEIGHT), Math.min(0, cameraY));
-                    
-                    const minPlayerX = -clampedCameraX + PLAYER_SIZE / 2;
-                    const maxPlayerX = -clampedCameraX + SHIP_WIDTH - PLAYER_SIZE / 2;
-                    const minPlayerY = -clampedCameraY + PLAYER_SIZE / 2;
-                    const maxPlayerY = -clampedCameraY + SHIP_HEIGHT - PLAYER_SIZE / 2;
-                    
-                    newX = Math.max(minPlayerX, Math.min(newX, maxPlayerX));
-                    newY = Math.max(minPlayerY, Math.min(newY, maxPlayerY));
-                }
                 
                 return { x: newX, y: newY };
             });

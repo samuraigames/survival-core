@@ -16,14 +16,12 @@ import { format } from 'date-fns';
 interface StartScreenProps {
   onStart: (level: Level) => void;
   isGameInProgress: boolean;
-  isMobileMode: boolean;
-  setIsMobileMode: (isMobile: boolean) => void;
   isMobile: boolean;
   levels: Level[];
   playerProgress: PlayerProgress | null;
 }
 
-const StartScreen = ({ onStart, isGameInProgress, isMobileMode, setIsMobileMode, isMobile, levels, playerProgress }: StartScreenProps) => {
+const StartScreen = ({ onStart, isGameInProgress, isMobile, levels, playerProgress }: StartScreenProps) => {
 
   const unlockedAchievementsCount = playerProgress?.completedAchievementIds.length ?? 0;
   const totalAchievements = initialAchievements.length;
@@ -97,17 +95,17 @@ const StartScreen = ({ onStart, isGameInProgress, isMobileMode, setIsMobileMode,
                         <div className="flex flex-col gap-4 p-1">
                           {initialAchievements.map(ach => {
                             const isUnlocked = playerProgress?.completedAchievementIds.includes(ach.id);
-                            const badgeColor = isUnlocked ? 'hsl(var(--primary))' : 'hsl(var(--muted))';
+                            const badgeColor = isUnlocked ? 'hsl(48, 98%, 50%)' : 'hsl(var(--muted))'; // Gold color for unlocked
                             
                             return (
                               <div key={ach.id} className="flex items-center gap-4 p-2 rounded-lg bg-background/50">
-                                <Medal className="w-10 h-10" style={{ color: badgeColor }}/>
+                                <Medal className="w-10 h-10 flex-shrink-0" style={{ color: badgeColor }}/>
                                 <div className="flex-grow text-left">
                                   <h4 className="font-bold">{ach.title}</h4>
                                   <p className="text-sm text-muted-foreground">{ach.description}</p>
                                 </div>
                                 {isUnlocked && playerProgress?.completionDateTimes?.[ach.id] && (
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground self-center">
                                     {format(new Date(playerProgress.completionDateTimes[ach.id]), "PPpp")}
                                   </p>
                                 )}

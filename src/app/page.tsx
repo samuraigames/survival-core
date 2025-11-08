@@ -8,10 +8,10 @@ import GameOverScreen from '@/components/game-over-screen';
 import OrientationLock from '@/components/orientation-lock';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCw } from 'lucide-react';
-import { FirebaseClientProvider, useFirebase, useUser, initiateAnonymousSignIn, useAuth } from '@/firebase';
+import { useFirebase, useUser, initiateAnonymousSignIn, useAuth, setDocumentNonBlocking, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { Level } from '@/lib/levels';
 import { initialLevels } from '@/lib/levels';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import type { PlayerProgress } from '@/lib/types';
 
 
@@ -55,7 +55,6 @@ function AppContent() {
   const [gameWon, setGameWon] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [isGameInProgress, setIsGameInProgress] = useState(false);
-  const [isMobileMode, setIsMobileMode] = useState(false);
   const [showRotatePrompt, setShowRotatePrompt] = useState(false);
   const isMobile = useIsMobile();
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
@@ -83,16 +82,21 @@ function AppContent() {
             completedAchievementIds: [],
             endCreditsUnlocked: false,
           };
-          setDoc(progressRef, initialProgress);
+          setDocumentNonBlocking(progressRef, initialProgress, { merge: false });
           setPlayerProgress(initialProgress);
         }
+      }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: progressRef.path,
+          operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
     }
   }, [user, firestore]);
 
   useEffect(() => {
     const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
-    setIsMobileMode(isMobileDevice);
     if (isMobileDevice) {
       setShowRotatePrompt(true);
     }
@@ -116,38 +120,56 @@ function AppContent() {
 
   const handleGameWin = useCallback(async (finalState: GameState) => {
     if (!user || !firestore || !selectedLevel) return;
-
+  
     setGameState(finalState);
     setGameWon(true);
     setIsGameInProgress(false);
-
+  
     const progressRef = doc(firestore, 'users', user.uid, 'playerProgress', 'main');
     const newAchievementId = selectedLevel.achievementId;
     const nextLevelId = selectedLevel.unlocksNextLevelId;
-
-    const docSnap = await getDoc(progressRef);
-    let newProgress: PlayerProgress;
-
-    if (docSnap.exists()) {
-      const currentProgress = docSnap.data() as PlayerProgress;
-      newProgress = {
-        ...currentProgress,
-        completedAchievementIds: [...new Set([...currentProgress.completedAchievementIds, newAchievementId])],
-        unlockedLevelIds: nextLevelId ? [...new Set([...currentProgress.unlockedLevelIds, nextLevelId])] : currentProgress.unlockedLevelIds,
-        endCreditsUnlocked: !nextLevelId ? true : currentProgress.endCreditsUnlocked,
-      };
-    } else {
-       newProgress = {
-        unlockedLevelIds: nextLevelId ? ['easy', nextLevelId] : ['easy'],
-        completedAchievementIds: [newAchievementId],
-        endCreditsUnlocked: !nextLevelId,
-      };
+  
+    try {
+      const docSnap = await getDoc(progressRef);
+      let newProgress: PlayerProgress;
+  
+      if (docSnap.exists()) {
+        const currentProgress = docSnap.data() as PlayerProgress;
+        newProgress = {
+          ...currentProgress,
+          completedAchievementIds: [...new Set([...currentProgress.completedAchievementIds, newAchievementId])],
+          unlockedLevelIds: nextLevelId ? [...new Set([...currentProgress.unlockedLevelIds, nextLevelId])] : currentProgress.unlockedLevelIds,
+          endCreditsUnlocked: !nextLevelId ? true : currentProgress.endCreditsUnlocked,
+          completionDateTimes: {
+            ...currentProgress.completionDateTimes,
+            [newAchievementId]: new Date().toISOString(),
+          }
+        };
+      } else {
+        newProgress = {
+          unlockedLevelIds: nextLevelId ? ['easy', nextLevelId] : ['easy'],
+          completedAchievementIds: [newAchievementId],
+          endCreditsUnlocked: !nextLevelId,
+          completionDateTimes: {
+            [newAchievementId]: new Date().toISOString(),
+          }
+        };
+      }
+      
+      setDocumentNonBlocking(progressRef, newProgress, { merge: true });
+      setPlayerProgress(newProgress);
+      
+      setGameStatus('game-over');
+    } catch (serverError) {
+        const permissionError = new FirestorePermissionError({
+          path: progressRef.path,
+          operation: 'get', // The failure could be the initial get
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        // Also set game over, but maybe show a save error
+        setCustomMessage("Critical Error: Could not save mission progress.");
+        setGameStatus('game-over');
     }
-    
-    await setDoc(progressRef, newProgress);
-    setPlayerProgress(newProgress);
-    
-    setGameStatus('game-over');
   }, [user, firestore, selectedLevel]);
 
 
@@ -194,8 +216,6 @@ function AppContent() {
           <StartScreen 
             onStart={handleStartGame} 
             isGameInProgress={isGameInProgress}
-            isMobileMode={isMobileMode}
-            setIsMobileMode={setIsMobileMode}
             isMobile={isMobile}
             levels={initialLevels}
             playerProgress={playerProgress}
@@ -211,7 +231,7 @@ function AppContent() {
             onGameWin={handleGameWin}
             onGameLose={handleGameLose}
             onReturnToMenu={handleReturnToMenu}
-            isMobileMode={isMobileMode}
+            isMobileMode={isMobile}
           />
         );
       case 'game-over':
@@ -222,8 +242,6 @@ function AppContent() {
           <StartScreen 
             onStart={handleStartGame} 
             isGameInProgress={isGameInProgress}
-            isMobileMode={isMobileMode}
-            setIsMobileMode={setIsMobileMode}
             isMobile={isMobile}
             levels={initialLevels}
             playerProgress={playerProgress}
@@ -271,8 +289,6 @@ function AppContent() {
 
 export default function Home() {
   return (
-    <FirebaseClientProvider>
       <AppContent />
-    </FirebaseClientProvider>
   )
 }
