@@ -10,11 +10,12 @@ import LifeSupportMinigame from './life-support-minigame';
 import Joystick from './joystick';
 import Starfield from './starfield';
 import { Badge } from './ui/badge';
-import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, HeartPulse, Fan, Home } from 'lucide-react';
+import { Gamepad2, Shield, Pause, Play, AlertTriangle, Rocket, Globe, Fan, Home } from 'lucide-react';
 import { motion, AnimatePresence, useAnimate } from 'framer-motion';
 import { Button } from './ui/button';
 import Image from 'next/image';
 import { Progress } from './ui/progress';
+import { type Level } from '@/lib/levels';
 
 // World dimensions
 const WORLD_WIDTH = 1200;
@@ -28,9 +29,6 @@ const TOTAL_WIDTH = SHIP_WIDTH;
 const TOTAL_HEIGHT = SHIP_HEIGHT + HUD_HEIGHT;
 const PLAYER_SIZE = 40;
 const INTERACTION_DISTANCE = 70;
-const WIN_TIME_SECONDS = 5 * 60; // 5 minutes to win
-const EVENT_INTERVAL_MS = 30000; // 30 seconds between events
-const ENGINE_OVERLOAD_SECONDS = 10 * 60; // 10 minutes to lose
 
 const ZONES = {
   NAV_CONSOLE: { x: WORLD_WIDTH / 2 - 200, y: WORLD_HEIGHT / 2 - 100, name: "Navigation" },
@@ -42,6 +40,7 @@ type ZoneName = keyof typeof ZONES | null;
 
 interface GameUIProps {
     initialState: GameState;
+    level: Level;
     onStateChange: (newState: GameState) => void;
     onGameWin: (finalState: GameState) => void;
     onGameLose: (finalState: GameState, message: string) => void;
@@ -49,7 +48,7 @@ interface GameUIProps {
     isMobileMode: boolean;
 }
 
-export default function GameUI({ initialState, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
+export default function GameUI({ initialState, level, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
   const playerVelocity = useRef(initialState.playerVelocity);
@@ -96,7 +95,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   });
 
   const isGameActive = !isPaused;
-  const isApproachingVictory = gameTime >= WIN_TIME_SECONDS - 60;
+  const isApproachingVictory = gameTime >= level.arrivalTime - 60;
   const isCrisisActive = isUnderAsteroidAttack || isNavCourseDeviating || isLifeSupportFailing;
   
   const handleStateUpdate = useCallback((updater: (prevState: GameState) => GameState) => {
@@ -129,10 +128,10 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   useEffect(() => {
     if (isInitialMount.current) return;
-    if (gameTime >= WIN_TIME_SECONDS) {
+    if (gameTime >= level.arrivalTime) {
         onGameWin(gameState);
     }
-  }, [gameTime, onGameWin, gameState]);
+  }, [gameTime, onGameWin, gameState, level.arrivalTime]);
 
   // Bubble up state changes to parent
   useEffect(() => {
@@ -292,7 +291,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
   useEffect(() => {
     if (isGameActive) {
       if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
-      eventIntervalRef.current = setInterval(triggerRandomEvent, EVENT_INTERVAL_MS);
+      eventIntervalRef.current = setInterval(triggerRandomEvent, level.problemFrequency * 1000);
     } else {
       if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     }
@@ -300,7 +299,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     return () => {
       if (eventIntervalRef.current) clearInterval(eventIntervalRef.current);
     };
-  }, [isGameActive, triggerRandomEvent]);
+  }, [isGameActive, triggerRandomEvent, level.problemFrequency]);
 
 
   // Game Timer
@@ -502,8 +501,8 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
 
   const alertMessage = getAlertMessage();
   const shipIntegrityPercentage = 100 - shipHits * 10;
-  const journeyProgressPercentage = (gameTime / WIN_TIME_SECONDS) * 100;
-  const engineTimePercentage = (engineTime / ENGINE_OVERLOAD_SECONDS) * 100;
+  const journeyProgressPercentage = (gameTime / level.arrivalTime) * 100;
+  const engineTimePercentage = (engineTime / level.engineOverloadTime) * 100;
   
   const canInteract = 
       (interaction?.zone === 'NAV_CONSOLE' && isNavCourseDeviating) ||
@@ -660,7 +659,7 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
                 <div className="w-full h-full bg-slate-800 rounded-sm flex items-center justify-center overflow-hidden">
                   {isApproachingVictory ? (
                     <Image
-                      src="https://picsum.photos/200/150"
+                      src="https://picsum.photos/seed/earth/200/150"
                       data-ai-hint="photo earth"
                       alt="Earth"
                       width={96}
@@ -829,9 +828,3 @@ export default function GameUI({ initialState, onStateChange, onGameWin, onGameL
     </div>
   );
 }
-
-    
-
-    
-
-

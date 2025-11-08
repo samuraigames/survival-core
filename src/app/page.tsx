@@ -8,6 +8,12 @@ import GameOverScreen from '@/components/game-over-screen';
 import OrientationLock from '@/components/orientation-lock';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCw } from 'lucide-react';
+import { FirebaseClientProvider, useFirebase, useUser, initiateAnonymousSignIn, useAuth } from '@/firebase';
+import type { Level } from '@/lib/levels';
+import { initialLevels } from '@/lib/levels';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { PlayerProgress } from '@/lib/types';
+
 
 const MOBILE_BREAKPOINT = 768;
 const useIsMobile = () => {
@@ -32,7 +38,6 @@ type GameStatus = 'start' | 'playing' | 'game-over';
 const initialGameState = {
   score: 0,
   gameTime: 0,
-  engineTime: 600, // ENGINE_OVERLOAD_SECONDS
   shipHits: 0,
   eventIntensity: 1,
   isUnderAsteroidAttack: false,
@@ -42,17 +47,48 @@ const initialGameState = {
   playerVelocity: { x: 0, y: 0 },
 };
 
-export type GameState = typeof initialGameState;
+export type GameState = Omit<typeof initialGameState, 'engineTime'> & { engineTime: number };
 
-export default function Home() {
+function AppContent() {
   const [gameStatus, setGameStatus] = useState<GameStatus>('start');
-  const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [gameState, setGameState] = useState<GameState | null>(null);
   const [gameWon, setGameWon] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [isGameInProgress, setIsGameInProgress] = useState(false);
   const [isMobileMode, setIsMobileMode] = useState(false);
   const [showRotatePrompt, setShowRotatePrompt] = useState(false);
   const isMobile = useIsMobile();
+  const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
+
+  const { isUserLoading, user } = useUser();
+  const { firestore } = useFirebase();
+  const auth = useAuth();
+  const [playerProgress, setPlayerProgress] = useState<PlayerProgress | null>(null);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [isUserLoading, user, auth]);
+
+  useEffect(() => {
+    if (user && firestore) {
+      const progressRef = doc(firestore, 'users', user.uid, 'playerProgress', 'main');
+      getDoc(progressRef).then(docSnap => {
+        if (docSnap.exists()) {
+          setPlayerProgress(docSnap.data() as PlayerProgress);
+        } else {
+          const initialProgress: PlayerProgress = {
+            unlockedLevelIds: ['easy'],
+            completedAchievementIds: [],
+            endCreditsUnlocked: false,
+          };
+          setDoc(progressRef, initialProgress);
+          setPlayerProgress(initialProgress);
+        }
+      });
+    }
+  }, [user, firestore]);
 
   useEffect(() => {
     const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
@@ -62,12 +98,12 @@ export default function Home() {
     }
   }, []);
 
-  const handleContinueGame = useCallback(() => {
-    setGameStatus('playing');
-  }, []);
-
-  const handleNewGame = useCallback(() => {
-    setGameState(initialGameState);
+  const handleStartGame = useCallback((level: Level) => {
+    setSelectedLevel(level);
+    setGameState({
+      ...initialGameState,
+      engineTime: level.engineOverloadTime,
+    });
     setGameWon(false);
     setCustomMessage('');
     setIsGameInProgress(true);
@@ -78,12 +114,42 @@ export default function Home() {
     setGameStatus('start');
   }, []);
 
-  const handleGameWin = useCallback((finalState: GameState) => {
+  const handleGameWin = useCallback(async (finalState: GameState) => {
+    if (!user || !firestore || !selectedLevel) return;
+
     setGameState(finalState);
     setGameWon(true);
     setIsGameInProgress(false);
+
+    const progressRef = doc(firestore, 'users', user.uid, 'playerProgress', 'main');
+    const newAchievementId = selectedLevel.achievementId;
+    const nextLevelId = selectedLevel.unlocksNextLevelId;
+
+    const docSnap = await getDoc(progressRef);
+    let newProgress: PlayerProgress;
+
+    if (docSnap.exists()) {
+      const currentProgress = docSnap.data() as PlayerProgress;
+      newProgress = {
+        ...currentProgress,
+        completedAchievementIds: [...new Set([...currentProgress.completedAchievementIds, newAchievementId])],
+        unlockedLevelIds: nextLevelId ? [...new Set([...currentProgress.unlockedLevelIds, nextLevelId])] : currentProgress.unlockedLevelIds,
+        endCreditsUnlocked: !nextLevelId ? true : currentProgress.endCreditsUnlocked,
+      };
+    } else {
+       newProgress = {
+        unlockedLevelIds: nextLevelId ? ['easy', nextLevelId] : ['easy'],
+        completedAchievementIds: [newAchievementId],
+        endCreditsUnlocked: !nextLevelId,
+      };
+    }
+    
+    await setDoc(progressRef, newProgress);
+    setPlayerProgress(newProgress);
+    
     setGameStatus('game-over');
-  }, []);
+  }, [user, firestore, selectedLevel]);
+
 
   const handleGameLose = useCallback((finalState: GameState, message: string) => {
     setGameState(finalState);
@@ -96,7 +162,7 @@ export default function Home() {
   const handleRestart = useCallback(() => {
       setGameStatus('start');
       setIsGameInProgress(false);
-      setGameState(initialGameState);
+      setGameState(null);
   }, []);
 
   const handleRotateAndLock = async () => {
@@ -126,18 +192,21 @@ export default function Home() {
       case 'start':
         return (
           <StartScreen 
-            onStart={handleContinueGame} 
-            onNewGame={handleNewGame} 
+            onStart={handleStartGame} 
             isGameInProgress={isGameInProgress}
             isMobileMode={isMobileMode}
             setIsMobileMode={setIsMobileMode}
             isMobile={isMobile}
+            levels={initialLevels}
+            playerProgress={playerProgress}
           />
         );
       case 'playing':
+        if (!gameState || !selectedLevel) return null;
         return (
           <GameUI
             initialState={gameState}
+            level={selectedLevel}
             onStateChange={setGameState}
             onGameWin={handleGameWin}
             onGameLose={handleGameLose}
@@ -146,20 +215,30 @@ export default function Home() {
           />
         );
       case 'game-over':
+        if (!gameState) return null;
         return <GameOverScreen score={gameState.score} onRestart={handleRestart} won={gameWon} customMessage={customMessage} />;
       default:
         return (
           <StartScreen 
-            onStart={handleContinueGame} 
-            onNewGame={handleNewGame} 
+            onStart={handleStartGame} 
             isGameInProgress={isGameInProgress}
             isMobileMode={isMobileMode}
             setIsMobileMode={setIsMobileMode}
             isMobile={isMobile}
+            levels={initialLevels}
+            playerProgress={playerProgress}
           />
         );
     }
   };
+
+  if (isUserLoading || !playerProgress) {
+    return (
+      <div className="w-screen h-screen bg-black flex items-center justify-center text-white">
+        <p>Loading Mission Control...</p>
+      </div>
+    );
+  }
 
   return (
     <main className="w-screen h-screen bg-black flex items-center justify-center">
@@ -188,4 +267,12 @@ export default function Home() {
       </OrientationLock>
     </main>
   );
+}
+
+export default function Home() {
+  return (
+    <FirebaseClientProvider>
+      <AppContent />
+    </FirebaseClientProvider>
+  )
 }

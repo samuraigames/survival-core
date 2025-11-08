@@ -4,24 +4,30 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import { Rocket, Clock, Keyboard, ShieldAlert, Play, Smartphone, Laptop } from "lucide-react";
+import { Rocket, Play, Smartphone, Laptop, Lock, Trophy, BarChart3, Medal } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
+import type { Level } from "@/lib/levels";
+import { initialAchievements } from "@/lib/achievements";
+import type { PlayerProgress } from "@/lib/types";
+import { format } from 'date-fns';
 
 interface StartScreenProps {
-  onStart: () => void;
-  onNewGame: () => void;
+  onStart: (level: Level) => void;
   isGameInProgress: boolean;
   isMobileMode: boolean;
   setIsMobileMode: (isMobile: boolean) => void;
   isMobile: boolean;
+  levels: Level[];
+  playerProgress: PlayerProgress | null;
 }
 
-const Key = ({ children }: { children: React.ReactNode }) => (
-    <div className="inline-flex items-center justify-center w-10 h-10 bg-card border-2 border-primary rounded-md shadow-md font-bold">
-        {children}
-    </div>
-);
+const StartScreen = ({ onStart, isGameInProgress, isMobileMode, setIsMobileMode, isMobile, levels, playerProgress }: StartScreenProps) => {
 
-const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIsMobileMode, isMobile }: StartScreenProps) => {
+  const unlockedAchievementsCount = playerProgress?.completedAchievementIds.length ?? 0;
+  const totalAchievements = initialAchievements.length;
+  const progressPercentage = (unlockedAchievementsCount / totalAchievements) * 100;
 
   return (
     <div className="relative w-full min-h-screen bg-background text-foreground">
@@ -36,117 +42,106 @@ const StartScreen = ({ onStart, onNewGame, isGameInProgress, isMobileMode, setIs
             <h1 className="text-6xl md:text-8xl font-headline font-bold text-accent tracking-tighter">
               SURVIVAL CORE
             </h1>
-            <p className="mt-4 text-lg sm:text-xl md:text-2xl text-muted-foreground font-body max-w-3xl mx-auto">
-              You are the last crew member. Your mission: survive for 5 minutes to reach Earth. Keep the ship running by managing critical systems, but be warned: the ship's engine is unstable and will overload in 10 minutes.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="my-10 flex flex-col items-center gap-4"
-          >
-            <div className="flex flex-col sm:flex-row gap-4">
-              {isGameInProgress && (
-                <Button
-                  onClick={onStart}
-                  size="lg"
-                  variant="outline"
-                  className="font-headline text-xl sm:text-2xl px-10 sm:px-12 py-6 sm:py-8 rounded-full shadow-lg transition-all duration-300"
-                >
-                  <Play className="mr-4 h-6 w-6 sm:h-8 sm:w-8" />
-                  CONTINUE
-                </Button>
-              )}
-              <Button
-                onClick={onNewGame}
-                size="lg"
-                className="font-headline text-xl sm:text-2xl px-10 sm:px-12 py-6 sm:py-8 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-lg shadow-accent/30 transition-all duration-300 hover:shadow-xl hover:shadow-accent/50"
-              >
-                <Rocket className="mr-4 h-6 w-6 sm:h-8 sm:w-8" />
-                {isGameInProgress ? 'NEW GAME' : 'BEGIN MISSION'}
-              </Button>
-            </div>
-             <div className="mt-6 z-50 flex flex-col sm:flex-row gap-4">
-                <Button
-                    onClick={() => setIsMobileMode(!isMobileMode)}
-                    size="lg"
-                    variant="secondary"
-                    className="font-headline text-lg px-8 py-4 rounded-full shadow-md"
-                >
-                    {isMobileMode ? <Smartphone className="mr-3 h-6 w-6" /> : <Laptop className="mr-3 h-6 w-6" />}
-                    Mode: {isMobileMode ? 'Mobile' : 'PC'}
-                </Button>
-             </div>
           </motion.div>
 
           <motion.div 
-            className="w-full mb-24"
+            className="w-full my-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.8 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
           >
-            <h2 className="text-2xl font-headline text-center mb-4 text-accent">How to Play</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-card/50 border-primary">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-center gap-2 font-headline text-lg"><Keyboard className="w-8 h-8 text-accent"/>Controls</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center text-center">
-                    <div className="flex gap-2 my-2">
-                        <Key>W</Key>
-                        <Key>A</Key>
-                        <Key>S</Key>
-                        <Key>D</Key>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">Use these keys to move. Approach a flashing console and press [E] to interact when you see a warning.</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-card/50 border-primary">
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-center gap-2 font-headline text-lg"><Clock className="w-8 h-8 text-accent"/>Win Condition</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center text-center">
-                    <p className="text-4xl font-bold my-2">5:00</p>
-                    <p className="text-sm text-muted-foreground mt-2">Survive for 5 minutes to reach Earth. Complete minigames to earn points and keep the ship from falling apart.</p>
-                </CardContent>
-              </Card>
-
-               <Card className="bg-card/50 border-primary">
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-center gap-2 font-headline text-lg"><ShieldAlert className="w-8 h-8 text-destructive"/>Lose Conditions</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center text-center gap-4">
-                    <div>
-                      <p className="font-bold">Engine Overload</p>
-                      <p className="text-sm text-muted-foreground">The engine will overload in 10 minutes. Each hit you take reduces this time by 2 minutes.</p>
-                    </div>
-                    <div>
-                      <p className="font-bold">Hull Integrity</p>
-                      <p className="text-sm text-muted-foreground">If the ship's integrity drops to 0% (from 10 hits), the hull will breach.</p>
-                    </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/50 border-primary">
-                 <CardHeader>
-                    <CardTitle className="flex items-center justify-center gap-2 font-headline text-lg">
-                      <div className="relative w-16 h-20 bg-slate-800 border-2 rounded-lg p-1 flex flex-col justify-between border-red-500 my-2 animate-pulse">
-                          <div className="h-2 bg-slate-600 rounded-sm"></div>
-                          <div className="h-8 bg-slate-700 rounded-md"></div>
-                          <div className="h-2 bg-slate-600 rounded-sm"></div>
+            <Tabs defaultValue="levels" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="levels"><Rocket className="w-4 h-4 mr-2"/>Levels</TabsTrigger>
+                <TabsTrigger value="achievements"><Trophy className="w-4 h-4 mr-2"/>Achievements</TabsTrigger>
+                <TabsTrigger value="progress"><BarChart3 className="w-4 h-4 mr-2"/>Progress</TabsTrigger>
+              </TabsList>
+              <TabsContent value="levels">
+                <Card className="bg-card/50 border-primary">
+                  <CardHeader>
+                    <CardTitle className="font-headline text-accent">Select Mission</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-72 w-full">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+                        {levels.map(level => {
+                          const isUnlocked = playerProgress?.unlockedLevelIds.includes(level.id);
+                          return (
+                            <Button
+                              key={level.id}
+                              variant={isUnlocked ? "outline" : "secondary"}
+                              className="h-auto p-4 text-left flex flex-col items-start"
+                              disabled={!isUnlocked}
+                              onClick={() => onStart(level)}
+                            >
+                              <div className="flex justify-between w-full items-center">
+                                <h3 className="font-headline text-lg text-accent">{level.name}</h3>
+                                {!isUnlocked && <Lock className="w-4 h-4" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground whitespace-normal mt-1">{level.menuDescription}</p>
+                            </Button>
+                          );
+                        })}
                       </div>
-                      <span>Interact</span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center text-center">
-                    <p className="text-sm text-muted-foreground">When a system fails, its console will flash red. Rush to it and press [E] to start a minigame and fix it before you take damage.</p>
-                </CardContent>
-              </Card>
-
-            </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="achievements">
+                <Card className="bg-card/50 border-primary">
+                  <CardHeader>
+                    <CardTitle className="font-headline text-accent">Service Record</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                     <ScrollArea className="h-72 w-full">
+                        <div className="flex flex-col gap-4 p-1">
+                          {initialAchievements.map(ach => {
+                            const isUnlocked = playerProgress?.completedAchievementIds.includes(ach.id);
+                            const badgeColor = isUnlocked ? 'hsl(var(--primary))' : 'hsl(var(--muted))';
+                            
+                            return (
+                              <div key={ach.id} className="flex items-center gap-4 p-2 rounded-lg bg-background/50">
+                                <Medal className="w-10 h-10" style={{ color: badgeColor }}/>
+                                <div className="flex-grow text-left">
+                                  <h4 className="font-bold">{ach.title}</h4>
+                                  <p className="text-sm text-muted-foreground">{ach.description}</p>
+                                </div>
+                                {isUnlocked && playerProgress?.completionDateTimes?.[ach.id] && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(playerProgress.completionDateTimes[ach.id]), "PPpp")}
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                     </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="progress">
+                 <Card className="bg-card/50 border-primary">
+                  <CardHeader>
+                    <CardTitle className="font-headline text-accent">Overall Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                     <div className="w-full">
+                        <p className="text-center mb-2">{unlockedAchievementsCount} of {totalAchievements} achievements unlocked</p>
+                        <Progress value={progressPercentage} className="w-full" />
+                     </div>
+                     {progressPercentage === 100 && (
+                        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} className="text-center mt-4">
+                           <h3 className="text-lg font-bold text-green-400">You’ve completed all levels. Well done, Commander!</h3>
+                           {/* Unlock End Credits button would go here */}
+                        </motion.div>
+                     )}
+                     {playerProgress?.endCreditsUnlocked && (
+                       <Button variant="outline">View Credits</Button>
+                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </motion.div>
         </div>
       </div>
