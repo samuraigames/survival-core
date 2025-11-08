@@ -57,7 +57,9 @@ export default function Home() {
   useEffect(() => {
     const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
     setIsMobileMode(isMobileDevice);
-    setShowRotatePrompt(isMobileDevice);
+    if (isMobileDevice) {
+      setShowRotatePrompt(true);
+    }
   }, []);
 
   const handleContinueGame = useCallback(() => {
@@ -108,8 +110,13 @@ export default function Home() {
             // @ts-ignore
             await screen.orientation.lock('landscape');
         }
-    } catch (err) {
-        console.error("Could not lock orientation:", err);
+    } catch (err: any) {
+        if (err.name === 'SecurityError' && err.message.includes('allow-orientation-lock')) {
+          // This error is expected in sandboxed environments like Studio's preview.
+          // We can safely ignore it as the feature will work in a real browser context.
+        } else {
+          console.error("Could not lock orientation:", err);
+        }
     }
     setShowRotatePrompt(false);
   };
