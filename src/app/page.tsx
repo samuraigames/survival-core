@@ -11,8 +11,10 @@ import { RotateCw } from 'lucide-react';
 import { useFirebase, useUser, initiateAnonymousSignIn, useAuth, setDocumentNonBlocking, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { Level } from '@/lib/levels';
 import { initialLevels } from '@/lib/levels';
+import { initialAchievements } from '@/lib/achievements';
 import { doc, getDoc } from 'firebase/firestore';
 import type { PlayerProgress } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 
 const MOBILE_BREAKPOINT = 768;
@@ -63,6 +65,7 @@ function AppContent() {
   const { firestore } = useFirebase();
   const auth = useAuth();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -132,9 +135,10 @@ function AppContent() {
     try {
       const docSnap = await getDoc(progressRef);
       let newProgress: PlayerProgress;
+      let currentProgress: PlayerProgress | undefined;
   
       if (docSnap.exists()) {
-        const currentProgress = docSnap.data() as PlayerProgress;
+        currentProgress = docSnap.data() as PlayerProgress;
         newProgress = {
           ...currentProgress,
           completedAchievementIds: [...new Set([...currentProgress.completedAchievementIds, newAchievementId])],
@@ -146,6 +150,7 @@ function AppContent() {
           }
         };
       } else {
+        currentProgress = undefined;
         newProgress = {
           unlockedLevelIds: nextLevelId ? ['easy', nextLevelId] : ['easy'],
           completedAchievementIds: [newAchievementId],
@@ -154,6 +159,18 @@ function AppContent() {
             [newAchievementId]: new Date().toISOString(),
           }
         };
+      }
+
+      // Check if the achievement is newly unlocked
+      if (!currentProgress?.completedAchievementIds.includes(newAchievementId)) {
+        const achievement = initialAchievements.find(a => a.id === newAchievementId);
+        if (achievement) {
+          toast({
+            title: '🏅 Achievement Unlocked!',
+            description: achievement.title,
+            className: 'border-amber-400 bg-amber-400/10',
+          });
+        }
       }
       
       setDocumentNonBlocking(progressRef, newProgress, { merge: true });
@@ -170,7 +187,7 @@ function AppContent() {
         setCustomMessage("Critical Error: Could not save mission progress.");
         setGameStatus('game-over');
     }
-  }, [user, firestore, selectedLevel]);
+  }, [user, firestore, selectedLevel, toast]);
 
 
   const handleGameLose = useCallback((finalState: GameState, message: string) => {
