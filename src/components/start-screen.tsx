@@ -39,6 +39,9 @@ const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress }: Star
             <h1 className="text-6xl md:text-8xl font-headline font-bold text-accent tracking-tighter">
               SURVIVAL CORE
             </h1>
+            <p className="mt-4 text-lg md:text-xl text-muted-foreground font-body max-w-2xl mx-auto">
+              You were on a mission to the moon when an asteroid hit the ship. You had to go back to Earth. You have limited time. Get there quick!!
+            </p>
           </motion.div>
 
           <motion.div 
