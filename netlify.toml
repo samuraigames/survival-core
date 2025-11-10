@@ -1,10 +1,8 @@
 # Netlify configuration file
 
 [build]
-  # Command to build the site
-  command = "npm run build"
   # Directory to publish
-  publish = "out"
+  publish = ".next"
 
 [build.environment]
   # Specify the Node.js version
