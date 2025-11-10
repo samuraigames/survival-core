@@ -156,8 +156,9 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     
     // Move asteroids and check for hits
     setAsteroids(prevAsteroids => {
+      const asteroidSpeed = 1 + difficulty / 5;
       return prevAsteroids
-        .map(a => ({ ...a, y: a.y + a.speed }))
+        .map(a => ({ ...a, y: a.y + a.speed * asteroidSpeed }))
         .filter(a => {
           if (a.y > GAME_HEIGHT) {
             setHits(h => {
@@ -208,7 +209,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameOver, win, handleClose, isMobileMode]);
+  }, [gameOver, win, handleClose, isMobileMode, difficulty]);
 
   // Check for win condition
   useEffect(() => {
@@ -223,17 +224,21 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (isClosing || isMobileMode) return;
-        e.preventDefault();
-        if (e.key === ' ' || e.code === 'Space') {
+        const key = e.key.toLowerCase();
+        if (key === ' ' || key === 'spacebar') {
+            e.preventDefault();
             shoot();
         } else {
-            keysPressed.current[e.key.toLowerCase()] = true;
+            keysPressed.current[key] = true;
         }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
         if (isClosing || isMobileMode) return;
-        e.preventDefault();
-        keysPressed.current[e.key.toLowerCase()] = false;
+        const key = e.key.toLowerCase();
+        if (key === ' ' || key === 'spacebar') {
+          e.preventDefault();
+        }
+        keysPressed.current[key] = false;
     };
 
     if (open) {

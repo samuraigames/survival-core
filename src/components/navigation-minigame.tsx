@@ -137,14 +137,20 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isMobileMode) return;
-    e.preventDefault();
-    keysPressed.current[e.key.toLowerCase()] = true;
+    const key = e.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'w', 's'].includes(key)) {
+      e.preventDefault();
+    }
+    keysPressed.current[key] = true;
   }, [isMobileMode]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (isMobileMode) return;
-    e.preventDefault();
-    keysPressed.current[e.key.toLowerCase()] = false;
+    const key = e.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'w', 's'].includes(key)) {
+      e.preventDefault();
+    }
+    keysPressed.current[key] = false;
   }, [isMobileMode]);
 
   useEffect(() => {
