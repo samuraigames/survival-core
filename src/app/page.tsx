@@ -18,22 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const MOBILE_BREAKPOINT = 768;
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-        setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
-  return !!isMobile;
-};
 
 type GameStatus = 'start' | 'playing' | 'game-over';
 
@@ -58,7 +42,7 @@ function AppContent() {
   const [customMessage, setCustomMessage] = useState('');
   const [isGameInProgress, setIsGameInProgress] = useState(false);
   const [showRotatePrompt, setShowRotatePrompt] = useState(false);
-  const isMobile = useIsMobile();
+  const [isMobile, setIsMobile] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
 
   const { isUserLoading, user } = useUser();
@@ -66,6 +50,21 @@ function AppContent() {
   const auth = useAuth();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(isMobileDevice);
+      if (isMobileDevice && gameStatus === 'start') {
+        setShowRotatePrompt(true);
+      }
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, [gameStatus]);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -84,6 +83,7 @@ function AppContent() {
             unlockedLevelIds: ['easy'],
             completedAchievementIds: [],
             endCreditsUnlocked: false,
+            completionDateTimes: {},
           };
           setDocumentNonBlocking(progressRef, initialProgress, { merge: false });
           setPlayerProgress(initialProgress);
@@ -97,13 +97,6 @@ function AppContent() {
       });
     }
   }, [user, firestore]);
-
-  useEffect(() => {
-    const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
-    if (isMobileDevice) {
-      setShowRotatePrompt(true);
-    }
-  }, []);
 
   const handleStartGame = useCallback((level: Level) => {
     setSelectedLevel(level);
@@ -233,7 +226,6 @@ function AppContent() {
           <StartScreen 
             onStart={handleStartGame} 
             isGameInProgress={isGameInProgress}
-            isMobile={isMobile}
             levels={initialLevels}
             playerProgress={playerProgress}
           />
@@ -259,7 +251,6 @@ function AppContent() {
           <StartScreen 
             onStart={handleStartGame} 
             isGameInProgress={isGameInProgress}
-            isMobile={isMobile}
             levels={initialLevels}
             playerProgress={playerProgress}
           />

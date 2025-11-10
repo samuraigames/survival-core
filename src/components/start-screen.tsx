@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import { Rocket, Play, Smartphone, Laptop, Lock, Trophy, BarChart3, Medal } from "lucide-react";
+import { Rocket, Lock, Trophy, BarChart3, Medal } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
@@ -16,12 +16,11 @@ import { format } from 'date-fns';
 interface StartScreenProps {
   onStart: (level: Level) => void;
   isGameInProgress: boolean;
-  isMobile: boolean;
   levels: Level[];
   playerProgress: PlayerProgress | null;
 }
 
-const StartScreen = ({ onStart, isGameInProgress, isMobile, levels, playerProgress }: StartScreenProps) => {
+const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress }: StartScreenProps) => {
 
   const unlockedAchievementsCount = playerProgress?.completedAchievementIds.length ?? 0;
   const totalAchievements = initialAchievements.length;
