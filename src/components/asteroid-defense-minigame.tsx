@@ -289,7 +289,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
           <motion.div
             style={{
               position: 'absolute',
-              bottom: isMobileMode ? 60 : 0, // Move ship up on mobile
+              bottom: 0,
               width: SHIP_WIDTH,
               height: SHIP_HEIGHT,
             }}
