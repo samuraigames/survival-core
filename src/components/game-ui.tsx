@@ -46,9 +46,10 @@ interface GameUIProps {
     onGameLose: (finalState: GameState, message: string) => void;
     onReturnToMenu: () => void;
     isMobileMode: boolean;
+    isFirstPlaythrough: boolean;
 }
 
-export default function GameUI({ initialState, level, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode }: GameUIProps) {
+export default function GameUI({ initialState, level, onStateChange, onGameWin, onGameLose, onReturnToMenu, isMobileMode, isFirstPlaythrough }: GameUIProps) {
   const [gameState, setGameState] = useState(initialState);
   const [playerPosition, setPlayerPosition] = useState(initialState.playerPosition);
   const playerVelocity = useRef(initialState.playerVelocity);
@@ -59,6 +60,11 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
   const [isPaused, setIsPaused] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   
+  // Tutorial State
+  const [showMovementHint, setShowMovementHint] = useState(isFirstPlaythrough);
+  const [showInteractionHint, setShowInteractionHint] = useState(false);
+  const hasShownInteractionHint = useRef(false);
+
   const { toast } = useToast();
   
   const gameTimerRef = useRef<NodeJS.Timeout>();
@@ -149,6 +155,11 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
 
     if (!canInteract) return;
 
+    if (showInteractionHint) {
+      setShowInteractionHint(false);
+      hasShownInteractionHint.current = true;
+    }
+
     if (interaction.zone === 'NAV_CONSOLE') {
       setActiveMinigame('navigation');
     } else if (interaction.zone === 'DEFENSE_CONSOLE') { 
@@ -156,7 +167,7 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
     } else if (interaction.zone === 'LIFE_SUPPORT') {
       setActiveMinigame('life-support');
     }
-  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isLifeSupportFailing, isUnderAsteroidAttack]);
+  }, [isGameActive, interaction, activeMinigame, isNavCourseDeviating, isLifeSupportFailing, isUnderAsteroidAttack, showInteractionHint]);
 
   // Passive damage from unattended crises
   useEffect(() => {
@@ -209,27 +220,32 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
     }
       
     let closestZone: {prompt: string, zone: ZoneName} | null = null;
+    let isNearActiveCrisisConsole = false;
     
     for (const zoneKey in ZONES) {
-      const zone = ZONES[zoneKey as keyof typeof ZONES];
+      const zoneName = zoneKey as keyof typeof ZONES;
+      const zone = ZONES[zoneName];
       const distance = Math.hypot(playerPosition.x - zone.x, playerPosition.y - zone.y);
 
       if (distance < INTERACTION_DISTANCE) {
-          if (zoneKey === 'DEFENSE_CONSOLE') {
+          if (zoneName === 'DEFENSE_CONSOLE') {
             if (isUnderAsteroidAttack) {
               closestZone = { prompt: `Press [E] to ACTIVATE DEFENSES!`, zone: 'DEFENSE_CONSOLE'};
+              isNearActiveCrisisConsole = true;
             } else {
               closestZone = { prompt: `Defenses Online`, zone: 'DEFENSE_CONSOLE'};
             }
-          } else if (zoneKey === 'NAV_CONSOLE') {
+          } else if (zoneName === 'NAV_CONSOLE') {
             if (isNavCourseDeviating) {
               closestZone = { prompt: 'Press [E] to CORRECT COURSE!', zone: 'NAV_CONSOLE'};
+              isNearActiveCrisisConsole = true;
             } else {
               closestZone = { prompt: 'Awaiting Coordinates', zone: 'NAV_CONSOLE'};
             }
-          } else if (zoneKey === 'LIFE_SUPPORT') {
+          } else if (zoneName === 'LIFE_SUPPORT') {
             if (isLifeSupportFailing) {
               closestZone = { prompt: 'Press [E] to RESTORE LIFE SUPPORT!', zone: 'LIFE_SUPPORT'};
+              isNearActiveCrisisConsole = true;
             } else {
               closestZone = { prompt: 'Systems Stable', zone: 'LIFE_SUPPORT'};
             }
@@ -242,7 +258,12 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
         setInteraction(closestZone);
     }
 
-  }, [playerPosition, isGameActive, interaction, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing]);
+    // Tutorial hint logic for interaction
+    if (isFirstPlaythrough && !hasShownInteractionHint.current && isNearActiveCrisisConsole) {
+      setShowInteractionHint(true);
+    }
+
+  }, [playerPosition, isGameActive, interaction, activeMinigame, isUnderAsteroidAttack, isNavCourseDeviating, isLifeSupportFailing, isFirstPlaythrough]);
 
   const triggerRandomEvent = useCallback(() => {
     handleStateUpdate(prevState => {
@@ -378,14 +399,24 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
             const friction = 0.9;
             const maxSpeed = 7;
 
+            let isMoving = false;
+
             if (!isMobileModeRef.current) {
-                if (keysPressed.current['w']) velY -= acceleration;
-                if (keysPressed.current['s']) velY += acceleration;
-                if (keysPressed.current['a']) velX -= acceleration;
-                if (keysPressed.current['d']) velX += acceleration;
+                if (keysPressed.current['w']) { velY -= acceleration; isMoving = true; }
+                if (keysPressed.current['s']) { velY += acceleration; isMoving = true; }
+                if (keysPressed.current['a']) { velX -= acceleration; isMoving = true; }
+                if (keysPressed.current['d']) { velX += acceleration; isMoving = true; }
             } else {
+                if (joystickVectorRef.current.x !== 0 || joystickVectorRef.current.y !== 0) {
+                    isMoving = true;
+                }
                 velX += joystickVectorRef.current.x * acceleration * 1.5;
                 velY += joystickVectorRef.current.y * acceleration * 1.5;
+            }
+
+            // Tutorial Hint Logic
+            if (showMovementHint && isMoving) {
+                setShowMovementHint(false);
             }
 
             const speed = Math.hypot(velX, velY);
@@ -424,7 +455,7 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
             cancelAnimationFrame(gameLoopRef.current);
         }
     };
-  }, []);
+  }, [showMovementHint]);
   
   // Camera follow animation
   useEffect(() => {
@@ -615,6 +646,36 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
                 </motion.div>
               )}
             </AnimatePresence>
+
+             {/* Tutorial Hints */}
+             <AnimatePresence>
+              {showMovementHint && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 p-4 rounded-lg border-2 border-accent text-center pointer-events-none z-30"
+                >
+                  <p className="font-headline text-lg text-accent">
+                    {isMobileMode ? "Use the Joystick to Move" : "Use W, A, S, D to Move"}
+                  </p>
+                </motion.div>
+              )}
+              {showInteractionHint && (
+                 <motion.div
+                    style={getPromptPosition()}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute bg-background/80 p-2 px-3 rounded-lg border-2 border-accent font-headline z-20 text-sm whitespace-nowrap"
+                 >
+                    <p className="text-accent">
+                      {isMobileMode ? "Press the 'Interact' button to fix!" : "Press [E] to fix!"}
+                    </p>
+                 </motion.div>
+              )}
+             </AnimatePresence>
+
 
             <div className="absolute top-2 left-2 p-2 border-b border-r border-dashed rounded-br-lg text-muted-foreground text-sm z-0">
               Cockpit

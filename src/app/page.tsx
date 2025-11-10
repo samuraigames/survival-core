@@ -231,7 +231,8 @@ function AppContent() {
           />
         );
       case 'playing':
-        if (!gameState || !selectedLevel) return null;
+        if (!gameState || !selectedLevel || !playerProgress) return null;
+        const isFirstPlaythrough = playerProgress.completedAchievementIds.length === 0;
         return (
           <GameUI
             initialState={gameState}
@@ -241,6 +242,7 @@ function AppContent() {
             onGameLose={handleGameLose}
             onReturnToMenu={handleReturnToMenu}
             isMobileMode={isMobile}
+            isFirstPlaythrough={isFirstPlaythrough}
           />
         );
       case 'game-over':
