@@ -22,8 +22,8 @@ const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 900;
 
 // Viewport dimensions
-const SHIP_WIDTH = 800;
-const SHIP_HEIGHT = 600;
+const SHIP_WIDTH = 640; // Reduced from 800
+const SHIP_HEIGHT = 480; // Reduced from 600
 const HUD_HEIGHT = 100;
 const TOTAL_WIDTH = SHIP_WIDTH;
 const TOTAL_HEIGHT = SHIP_HEIGHT + HUD_HEIGHT;
