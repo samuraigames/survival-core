@@ -47,12 +47,12 @@ service cloud.firestore {
 
     /**
      * @description Enforces strict user ownership for the single player progress document.
-     * @path /users/{userId}/playerProgress/main
+     * @path /users/{userId}/playerProgress/{progressDoc}
      * @allow read, write: if isSignedIn() && isOwner(userId); Example: User 'abc' can read/write their own progress data.
      * @deny read, write: if !isSignedIn() || !isOwner(userId); Example: Anonymous user or user 'def' cannot access user 'abc' progress data.
      * @principle Enforces document ownership for all read and write operations on player progress data.
      */
-    match /users/{userId}/playerProgress/main {
+    match /users/{userId}/playerProgress/{progressDoc} {
       allow read, write: if isSignedIn() && isOwner(userId);
     }
 

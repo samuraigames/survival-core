@@ -157,7 +157,7 @@
         }
       },
       {
-        "path": "/users/{userId}/playerProgress",
+        "path": "/users/{userId}/playerProgress/main",
         "definition": {
           "entityName": "PlayerProgress",
           "schema": {
