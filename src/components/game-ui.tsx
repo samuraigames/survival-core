@@ -22,8 +22,8 @@ const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 900;
 
 // Viewport dimensions
-const SHIP_WIDTH = 640; // Reduced from 800
-const SHIP_HEIGHT = 480; // Reduced from 600
+const SHIP_WIDTH = 640; 
+const SHIP_HEIGHT = 480; 
 const HUD_HEIGHT = 100;
 const TOTAL_WIDTH = SHIP_WIDTH;
 const TOTAL_HEIGHT = SHIP_HEIGHT + HUD_HEIGHT;
@@ -528,7 +528,7 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
 
   return (
     <div
-      className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center relative"
+      className="bg-black font-body text-foreground flex flex-col items-center shadow-2xl shadow-primary/40 origin-center relative transform scale-[0.9] md:scale-100"
       style={{
         width: TOTAL_WIDTH,
         height: TOTAL_HEIGHT,
@@ -833,12 +833,12 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
       {/* Mobile Controls Overlay */}
       {isMobileMode && isGameActive && (
         <div className="absolute inset-0 w-full h-full pointer-events-none z-40">
-            <div className="absolute bottom-5 left-5 pointer-events-auto">
+            <div className="absolute bottom-16 left-5 pointer-events-auto">
               <Joystick onMove={setJoystickVector} />
             </div>
           
             {interaction && canInteract && (
-            <div className="absolute bottom-8 right-5 pointer-events-auto">
+            <div className="absolute bottom-20 right-5 pointer-events-auto">
               <Button
                 onClick={triggerInteraction}
                 className="rounded-full w-20 h-20 text-lg bg-accent/80 hover:bg-accent border-2 border-accent-foreground/50 shadow-lg backdrop-blur-sm capitalize"

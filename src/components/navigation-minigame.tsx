@@ -147,9 +147,6 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (isMobileMode) return;
     const key = e.key.toLowerCase();
-    if (['arrowup', 'arrowdown', 'w', 's'].includes(key)) {
-      e.preventDefault();
-    }
     keysPressed.current[key] = false;
   }, [isMobileMode]);
 
@@ -252,5 +249,3 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 };
 
 export default NavigationMinigame;
-
-    

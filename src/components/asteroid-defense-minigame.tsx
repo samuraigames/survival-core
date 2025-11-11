@@ -235,9 +235,6 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
     const handleKeyUp = (e: KeyboardEvent) => {
         if (isClosing || isMobileMode) return;
         const key = e.key.toLowerCase();
-        if (key === ' ' || key === 'spacebar') {
-          e.preventDefault();
-        }
         keysPressed.current[key] = false;
     };
 
@@ -294,7 +291,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
           <motion.div
             style={{
               position: 'absolute',
-              bottom: 0,
+              bottom: isMobileMode ? 40 : 0,
               width: SHIP_WIDTH,
               height: SHIP_HEIGHT,
             }}
@@ -365,5 +362,3 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 };
 
 export default AsteroidDefenseMinigame;
-
-    
