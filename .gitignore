@@ -43,3 +43,4 @@ yarn.lock
 
 # AppData
 AppData/
+.env
