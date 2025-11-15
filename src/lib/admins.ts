@@ -10,6 +10,6 @@
  */
 
 export const ADMIN_UIDS: string[] = [
-    "REPLACE_WITH_YOUR_ADMIN_UID",
+    "5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2",
     // You can add more admin UIDs here
 ];
