@@ -5,10 +5,11 @@ import { useState, useCallback, useEffect } from 'react';
 import GameUI from '@/components/game-ui';
 import StartScreen from '@/components/start-screen';
 import GameOverScreen from '@/components/game-over-screen';
+import AuthScreen from '@/components/auth-screen';
 import OrientationLock from '@/components/orientation-lock';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCw } from 'lucide-react';
-import { useFirebase, useUser, initiateAnonymousSignIn, useAuth, setDocumentNonBlocking, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useUser, setDocumentNonBlocking, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { Level } from '@/lib/levels';
 import { initialLevels } from '@/lib/levels';
 import { initialAchievements } from '@/lib/achievements';
@@ -19,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const MOBILE_BREAKPOINT = 768;
 
-type GameStatus = 'start' | 'playing' | 'game-over';
+type GameStatus = 'auth' | 'start' | 'playing' | 'game-over';
 
 const initialGameState = {
   score: 0,
@@ -36,7 +37,7 @@ const initialGameState = {
 export type GameState = Omit<typeof initialGameState, 'engineTime'> & { engineTime: number };
 
 function AppContent() {
-  const [gameStatus, setGameStatus] = useState<GameStatus>('start');
+  const [gameStatus, setGameStatus] = useState<GameStatus>('auth');
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [gameWon, setGameWon] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
@@ -47,30 +48,31 @@ function AppContent() {
 
   const { isUserLoading, user } = useUser();
   const { firestore } = useFirebase();
-  const auth = useAuth();
   const [playerProgress, setPlayerProgress] = useState<PlayerProgress | null>(null);
   const { toast } = useToast();
-
+  
   useEffect(() => {
-    const checkIsMobile = () => {
+    const handleResize = () => {
       const isMobileDevice = window.innerWidth < MOBILE_BREAKPOINT;
       setIsMobile(isMobileDevice);
-      if (isMobileDevice && gameStatus === 'start') {
+      if (isMobileDevice && (gameStatus === 'start' || gameStatus === 'auth')) {
         setShowRotatePrompt(true);
       }
     };
-
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-
-    return () => window.removeEventListener('resize', checkIsMobile);
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    return () => window.removeEventListener('resize', handleResize);
   }, [gameStatus]);
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
+    if (!isUserLoading) {
+        if(user) {
+            setGameStatus('start');
+        } else {
+            setGameStatus('auth');
+        }
     }
-  }, [isUserLoading, user, auth]);
+  }, [isUserLoading, user]);
 
   useEffect(() => {
     if (user && firestore) {
@@ -95,6 +97,9 @@ function AppContent() {
         });
         errorEmitter.emit('permission-error', permissionError);
       });
+    } else {
+        // If user is logged out, clear progress
+        setPlayerProgress(null);
     }
   }, [user, firestore]);
 
@@ -221,6 +226,8 @@ function AppContent() {
 
   const renderGameStatus = () => {
     switch (gameStatus) {
+      case 'auth':
+        return <AuthScreen />;
       case 'start':
         return (
           <StartScreen 
@@ -249,18 +256,11 @@ function AppContent() {
         if (!gameState) return null;
         return <GameOverScreen score={gameState.score} onRestart={handleRestart} won={gameWon} customMessage={customMessage} />;
       default:
-        return (
-          <StartScreen 
-            onStart={handleStartGame} 
-            isGameInProgress={isGameInProgress}
-            levels={initialLevels}
-            playerProgress={playerProgress}
-          />
-        );
+         return <AuthScreen />;
     }
   };
 
-  if (isUserLoading || !playerProgress) {
+  if (isUserLoading || (user && !playerProgress)) {
     return (
       <div className="w-screen h-screen bg-black flex items-center justify-center text-white">
         <p>Loading Mission Control...</p>

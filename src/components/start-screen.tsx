@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import { Rocket, Lock, Trophy, BarChart3, Medal } from "lucide-react";
+import { Rocket, Lock, Trophy, BarChart3, Medal, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
@@ -12,6 +12,8 @@ import type { Level } from "@/lib/levels";
 import { initialAchievements } from "@/lib/achievements";
 import type { PlayerProgress } from "@/lib/types";
 import { format } from 'date-fns';
+import { useAuth } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 interface StartScreenProps {
   onStart: (level: Level) => void;
@@ -22,9 +24,16 @@ interface StartScreenProps {
 
 const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress }: StartScreenProps) => {
 
+  const auth = useAuth();
   const unlockedAchievementsCount = playerProgress?.completedAchievementIds.length ?? 0;
   const totalAchievements = initialAchievements.length;
   const progressPercentage = (unlockedAchievementsCount / totalAchievements) * 100;
+
+  const handleSignOut = () => {
+    if(auth) {
+      signOut(auth);
+    }
+  }
 
   return (
     <div className="relative w-full min-h-screen bg-background text-foreground">
@@ -142,6 +151,18 @@ const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress }: Star
                 </Card>
               </TabsContent>
             </Tabs>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="absolute top-4 right-4"
+          >
+            <Button variant="ghost" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4"/>
+              Sign Out
+            </Button>
           </motion.div>
         </div>
       </div>
