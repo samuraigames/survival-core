@@ -269,8 +269,8 @@ function AppContent() {
   }
 
   return (
-    <main className="fixed inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
-       <div className="pointer-events-auto">
+    <main className="fixed inset-0 flex items-center justify-center pointer-events-none">
+       <div className="pointer-events-auto w-full h-full">
         <AnimatePresence>
           {showRotatePrompt && isMobile && (
             <motion.div

@@ -362,7 +362,3 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 };
 
 export default AsteroidDefenseMinigame;
-
-    
-
-    
