@@ -15,7 +15,7 @@ service cloud.firestore {
     // --- Admin Configuration ---
     // A simple list of UIDs for users who have admin privileges.
     // In a real-world app, this might be managed via custom claims.
-    let admins = ["5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2"];
+    let admins = ["5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2", "zvDHJFKXb0VeGe6LUForw7ZyBsw2"];
 
     /**
      * @description Public read-only access for level definitions.

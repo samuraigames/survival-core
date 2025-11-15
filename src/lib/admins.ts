@@ -11,5 +11,6 @@
 
 export const ADMIN_UIDS: string[] = [
     "5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2",
+    "zvDHJFKXb0VeGe6LUForw7ZyBsw2",
     // You can add more admin UIDs here
 ];
