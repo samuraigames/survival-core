@@ -12,11 +12,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Admin Configuration ---
-    // A simple list of UIDs for users who have admin privileges.
-    // In a real-world app, this might be managed via custom claims.
-    let admins = ["5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2", "zvDHJFKXb0VeGe6LUForw7ZyBsw2"];
-
     /**
      * @description Public read-only access for level definitions.
      */
@@ -80,9 +75,10 @@ service cloud.firestore {
 
     /**
      * @description Helper function to check if the requesting user is an admin.
+     * This now correctly defines the list of UIDs for the 'in' operator.
      */
     function isAdmin() {
-      return request.auth.uid in admins;
+      return request.auth.uid in ["5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2", "zvDHJFKXb0VeGe6LUForw7ZyBsw2"];
     }
   }
 }
