@@ -455,7 +455,7 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
             cancelAnimationFrame(gameLoopRef.current);
         }
     };
-  }, [showMovementHint]);
+  }, []); // Empty dependency array ensures this runs only once
   
   // Camera follow animation
   useEffect(() => {
@@ -872,5 +872,3 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
     </div>
   );
 }
-
-    
