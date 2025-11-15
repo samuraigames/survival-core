@@ -833,12 +833,12 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
       {/* Mobile Controls Overlay */}
       {isMobileMode && isGameActive && (
         <div className="absolute inset-0 w-full h-full pointer-events-none z-40">
-            <div className="absolute bottom-16 left-5 pointer-events-auto">
+            <div className="absolute bottom-24 left-5 pointer-events-auto">
               <Joystick onMove={setJoystickVector} />
             </div>
           
             {interaction && canInteract && (
-            <div className="absolute bottom-20 right-5 pointer-events-auto">
+            <div className="absolute bottom-28 right-5 pointer-events-auto">
               <Button
                 onClick={triggerInteraction}
                 className="rounded-full w-20 h-20 text-lg bg-accent/80 hover:bg-accent border-2 border-accent-foreground/50 shadow-lg backdrop-blur-sm capitalize"
@@ -872,3 +872,5 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
     </div>
   );
 }
+
+    

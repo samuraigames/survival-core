@@ -139,7 +139,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
     if (isMobileMode) return;
     const key = e.key.toLowerCase();
     if (['arrowup', 'arrowdown', 'w', 's'].includes(key)) {
-      e.preventDefault();
+      // Intentionally not calling e.preventDefault() to allow scrolling
     }
     keysPressed.current[key] = true;
   }, [isMobileMode]);
@@ -249,3 +249,5 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 };
 
 export default NavigationMinigame;
+
+    

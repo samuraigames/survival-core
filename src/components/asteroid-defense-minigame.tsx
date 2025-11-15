@@ -310,7 +310,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
           
            {/* Mobile Controls */}
            {isMobileMode && !gameOver && !win && (
-                <div className="absolute bottom-4 inset-x-4 flex justify-between items-center z-10">
+                <div className="absolute bottom-10 inset-x-4 flex justify-between items-center z-10">
                     <div className="flex gap-2">
                         <Button
                             size="icon"
@@ -362,3 +362,5 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 };
 
 export default AsteroidDefenseMinigame;
+
+    
