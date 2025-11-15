@@ -81,8 +81,8 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
         const speed = 3;
         let newY = prevY;
         if (!isMobileMode) {
-          if(keysPressed.current['arrowup'] || keysPressed.current['w']) newY -= speed;
-          if(keysPressed.current['arrowdown'] || keysPressed.current['s']) newY += speed;
+          if(keysPressed.current['arrowup']) newY -= speed;
+          if(keysPressed.current['arrowdown']) newY += speed;
         } else {
           if (touchState.current === 'up') newY -= speed;
           if (touchState.current === 'down') newY += speed;
@@ -138,9 +138,6 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isMobileMode) return;
     const key = e.key.toLowerCase();
-    if (['arrowup', 'arrowdown', 'w', 's'].includes(key)) {
-      // Intentionally not calling e.preventDefault() to allow scrolling
-    }
     keysPressed.current[key] = true;
   }, [isMobileMode]);
 
@@ -177,7 +174,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
           <DialogDescription>
             {isMobileMode 
                 ? "The course is unstable! Use the on-screen buttons to stay within the quantum tunnel."
-                : "The course is unstable! Use UP/DOWN or W/S to stay within the quantum tunnel."
+                : "The course is unstable! Use the UP and DOWN arrow keys to stay within the quantum tunnel."
             }
           </DialogDescription>
         </DialogHeader>
@@ -249,5 +246,7 @@ const NavigationMinigame: React.FC<NavigationMinigameProps> = ({ open, onClose, 
 };
 
 export default NavigationMinigame;
+
+    
 
     

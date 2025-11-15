@@ -226,7 +226,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
         if (isClosing || isMobileMode) return;
         const key = e.key.toLowerCase();
         if (key === ' ' || key === 'spacebar') {
-            e.preventDefault();
+            e.preventDefault(); // Only prevent default for spacebar
             shoot();
         } else {
             keysPressed.current[key] = true;
@@ -362,5 +362,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 };
 
 export default AsteroidDefenseMinigame;
+
+    
 
     
