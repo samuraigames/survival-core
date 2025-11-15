@@ -8,7 +8,8 @@ import { Rocket, Lock, Trophy, BarChart3, Medal, LogOut, ShieldCheck } from "luc
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import type { Level, initialLevels } from "@/lib/levels";
+import type { Level } from "@/lib/levels";
+import { initialLevels } from "@/lib/levels";
 import { initialAchievements } from "@/lib/achievements";
 import type { PlayerProgress } from "@/lib/types";
 import { format } from 'date-fns';
@@ -23,9 +24,10 @@ interface StartScreenProps {
   isGameInProgress: boolean;
   levels: Level[];
   playerProgress: PlayerProgress | null;
+  setPlayerProgress: (progress: PlayerProgress) => void;
 }
 
-const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress }: StartScreenProps) => {
+const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress, setPlayerProgress }: StartScreenProps) => {
 
   const auth = useAuth();
   const { user } = useUser();
@@ -64,6 +66,7 @@ const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress }: Star
 
     const progressRef = doc(firestore, 'users', user.uid, 'playerProgress', 'main');
     setDocumentNonBlocking(progressRef, newProgress, { merge: false });
+    setPlayerProgress(newProgress); // Update local state immediately
     
     toast({
       title: "Admin Power!",

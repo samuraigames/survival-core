@@ -235,6 +235,7 @@ function AppContent() {
             isGameInProgress={isGameInProgress}
             levels={initialLevels}
             playerProgress={playerProgress}
+            setPlayerProgress={setPlayerProgress}
           />
         );
       case 'playing':
