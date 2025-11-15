@@ -72,7 +72,6 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
   const passiveDamageTimerRef = useRef<NodeJS.Timeout>();
   const [scope, animate] = useAnimate();
   const gameLoopRef = useRef<number>();
-  const isInitialMount = useRef(true);
 
   // Refs for stable values in game loop
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -119,21 +118,18 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
   }, [handleStateUpdate]);
   
   useEffect(() => {
-    if (isInitialMount.current) return;
     if (shipHits >= 10) {
       onGameLose(gameState, "The ship's hull has been breached!");
     }
   }, [shipHits, onGameLose, gameState]);
   
   useEffect(() => {
-    if (isInitialMount.current) return;
     if (engineTime <= 0) {
       onGameLose(gameState, "The engine has overloaded!");
     }
   }, [engineTime, onGameLose, gameState]);
 
   useEffect(() => {
-    if (isInitialMount.current) return;
     if (gameTime >= level.arrivalTime) {
         onGameWin(gameState);
     }
@@ -348,9 +344,8 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
     if (passiveDamageTimerRef.current) clearInterval(passiveDamageTimerRef.current);
 
     // Start first event quickly if it's a new game
-    if (isInitialMount.current && initialState.gameTime < 5) {
+    if (initialState.gameTime < 5) {
       const timeoutId = setTimeout(triggerRandomEvent, 5000);
-      isInitialMount.current = false;
       return () => clearTimeout(timeoutId);
     }
     
@@ -358,9 +353,6 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
   
   // Set isInitialMount to false after first render, if not already done
   useEffect(() => {
-    if (isInitialMount.current) {
-        isInitialMount.current = false;
-    }
   }, []);
 
   // Update refs for game loop
@@ -455,7 +447,7 @@ export default function GameUI({ initialState, level, onStateChange, onGameWin, 
             cancelAnimationFrame(gameLoopRef.current);
         }
     };
-  }, []); // Empty dependency array ensures this runs only once
+  }, [showMovementHint]); // Dependency array is now correct
   
   // Camera follow animation
   useEffect(() => {

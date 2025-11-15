@@ -6,17 +6,16 @@
  * This ruleset enforces a strict user-ownership model for player progress and user profiles,
  * while allowing public read access to game-level and achievement definitions.
  * It also manages a public-write, unique-creation collection for usernames.
- *
- * Data Structure:
- * - /levels/{levelId}: Stores publicly readable level definitions.
- * - /achievements/{achievementId}: Stores publicly readable achievement definitions.
- * - /users/{userId}: Stores user-specific profile data, only writable by the owner.
- * - /users/{userId}/playerProgress/main: Stores player-specific progress data, accessible only to the owning user.
- * - /usernames/{username}: Maps usernames to UIDs for uniqueness checks. Writable on create only.
+ * Admins are granted special write access to player progress for management purposes.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // --- Admin Configuration ---
+    // A simple list of UIDs for users who have admin privileges.
+    // In a real-world app, this might be managed via custom claims.
+    let admins = ["REPLACE_WITH_YOUR_ADMIN_UID"];
 
     /**
      * @description Public read-only access for level definitions.
@@ -44,10 +43,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Enforces strict user ownership for player progress.
+     * @description Enforces strict user ownership for player progress,
+     * but allows admins to write to any user's progress.
      */
     match /users/{userId}/playerProgress/{progressDoc} {
-      allow read, write: if isSignedIn() && isOwner(userId);
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
     
     /**
@@ -75,6 +76,13 @@ service cloud.firestore {
      */
     function isOwner(userId) {
       return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Helper function to check if the requesting user is an admin.
+     */
+    function isAdmin() {
+      return request.auth.uid in admins;
     }
   }
 }
