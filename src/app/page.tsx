@@ -262,37 +262,39 @@ function AppContent() {
 
   if (isUserLoading || (user && !playerProgress)) {
     return (
-      <div className="w-screen h-screen bg-black flex items-center justify-center text-white">
+      <div className="fixed inset-0 bg-black flex items-center justify-center text-white z-50">
         <p>Loading Mission Control...</p>
       </div>
     );
   }
 
   return (
-    <main className="w-screen h-screen bg-black flex items-center justify-center">
-       <AnimatePresence>
-        {showRotatePrompt && isMobile && (
-          <motion.div
-            key="rotate-prompt"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleRotateAndLock}
-            className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center text-center p-4 cursor-pointer"
-          >
-            <RotateCw className="w-16 h-16 text-accent mb-4 animate-spin" />
-            <h1 className="text-2xl font-headline text-foreground mb-2">
-              Tap to Enter Fullscreen
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              This game is best played in landscape mode.
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <OrientationLock isMobile={isMobile}>
-        {renderGameStatus()}
-      </OrientationLock>
+    <main className="fixed inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
+       <div className="pointer-events-auto">
+        <AnimatePresence>
+          {showRotatePrompt && isMobile && (
+            <motion.div
+              key="rotate-prompt"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRotateAndLock}
+              className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center text-center p-4 cursor-pointer"
+            >
+              <RotateCw className="w-16 h-16 text-accent mb-4 animate-spin" />
+              <h1 className="text-2xl font-headline text-foreground mb-2">
+                Tap to Enter Fullscreen
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                This game is best played in landscape mode.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <OrientationLock isMobile={isMobile}>
+          {renderGameStatus()}
+        </OrientationLock>
+      </div>
     </main>
   );
 }
