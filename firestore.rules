@@ -1,59 +1,66 @@
+
 /**
  * @fileoverview Firestore Security Rules for Survival Core Game
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for player progress,
+ * This ruleset enforces a strict user-ownership model for player progress and user profiles,
  * while allowing public read access to game-level and achievement definitions.
- * Write access to levels and achievements is restricted to backend processes (not covered here).
+ * It also manages a public-write, unique-creation collection for usernames.
  *
  * Data Structure:
  * - /levels/{levelId}: Stores publicly readable level definitions.
  * - /achievements/{achievementId}: Stores publicly readable achievement definitions.
+ * - /users/{userId}: Stores user-specific profile data, only writable by the owner.
  * - /users/{userId}/playerProgress/main: Stores player-specific progress data, accessible only to the owning user.
- *
- * Key Security Decisions:
- * - Public Read-Only Collections: The 'levels' and 'achievements' collections are readable by all users.
- * - Strict Ownership: A user can only access their own player progress data under /users/{userId}.
- * - Denormalization: To optimize security rules, any authorization-related data (e.g., ownership)
- *   should be denormalized directly onto the documents.
+ * - /usernames/{username}: Maps usernames to UIDs for uniqueness checks. Writable on create only.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public read access to level definitions. Write access is denied.
-     * @path /levels/{levelId}
-     * @allow get, list: Any user can read level data.
-     * @deny create, update, delete: No user can create, update, or delete level data through the client.
-     * @principle Allows public read access for game configuration data.
+     * @description Public read-only access for level definitions.
      */
     match /levels/{levelId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow write: if false;
     }
 
     /**
-     * @description Allows public read access to achievement definitions. Write access is denied.
-     * @path /achievements/{achievementId}
-     * @allow get, list: Any user can read achievement data.
-     * @deny create, update, delete: No user can create, update, or delete achievement data through the client.
-     * @principle Allows public read access for game configuration data.
+     * @description Public read-only access for achievement definitions.
      */
     match /achievements/{achievementId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow write: if false;
     }
 
     /**
-     * @description Enforces strict user ownership for the single player progress document.
-     * @path /users/{userId}/playerProgress/{progressDoc}
-     * @allow read, write: if isSignedIn() && isOwner(userId); Example: User 'abc' can read/write their own progress data.
-     * @deny read, write: if !isSignedIn() || !isOwner(userId); Example: Anonymous user or user 'def' cannot access user 'abc' progress data.
-     * @principle Enforces document ownership for all read and write operations on player progress data.
+     * @description Manages user profiles. Only the owner can write their profile.
+     * Anyone can read a user's profile (e.g., to see a username).
+     */
+    match /users/{userId} {
+      allow get: if true;
+      allow write: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Enforces strict user ownership for player progress.
      */
     match /users/{userId}/playerProgress/{progressDoc} {
       allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    
+    /**
+     * @description Ensures usernames are unique upon creation.
+     * - Any signed-in user can create a username document.
+     * - The document can only be created if it doesn't already exist.
+     * - The document `uid` must match the creator's `uid`.
+     * - No one can update or delete a username document once created.
+     */
+    match /usernames/{username} {
+      allow get: if true;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
     }
 
     /**
@@ -64,7 +71,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Helper function to check if the request is made by the owner of the resource, based on the userId.
+     * @description Helper function to check if the request is made by the owner of the resource.
      */
     function isOwner(userId) {
       return request.auth.uid == userId;

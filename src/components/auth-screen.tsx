@@ -17,68 +17,128 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth } from "@/firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError } from "firebase/auth";
+import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, AuthError } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { motion } from 'framer-motion';
 
-const formSchema = z.object({
+const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-type UserFormValue = z.infer<typeof formSchema>;
+const signupSchema = z.object({
+  username: z.string().min(3, { message: "Username must be at least 3 characters." }).max(20, { message: "Username cannot be longer than 20 characters." }).regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores." }),
+  email: z.string().email({ message: "Invalid email address." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+});
+
+type LoginFormValue = z.infer<typeof loginSchema>;
+type SignupFormValue = z.infer<typeof signupSchema>;
 
 export default function AuthScreen() {
   const [activeTab, setActiveTab] = useState("login");
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
+  const firestore = useFirestore();
 
-  const form = useForm<UserFormValue>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+  const loginForm = useForm<LoginFormValue>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
   });
 
-  const onSubmit = async (data: UserFormValue) => {
+  const signupForm = useForm<SignupFormValue>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { username: "", email: "", password: "" },
+  });
+
+  const handleLogin = async (data: LoginFormValue) => {
     setIsLoading(true);
     setAuthError(null);
     try {
-      if (activeTab === "login") {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
-      } else {
-        await createUserWithEmailAndPassword(auth, data.email, data.password);
-      }
-      // onAuthStateChanged in page.tsx will handle navigation
+      await signInWithEmailAndPassword(auth, data.email, data.password);
     } catch (error) {
-        const firebaseError = error as AuthError;
-        let friendlyMessage = "An unexpected error occurred. Please try again.";
-        switch (firebaseError.code) {
-            case "auth/user-not-found":
-                friendlyMessage = "No account found with this email address.";
-                break;
-            case "auth/wrong-password":
-                friendlyMessage = "Incorrect password. Please try again.";
-                break;
-            case "auth/email-already-in-use":
-                friendlyMessage = "This email is already in use by another account.";
-                break;
-            case "auth/invalid-email":
-                friendlyMessage = "The email address is not valid.";
-                break;
-            case "auth/weak-password":
-                friendlyMessage = "The password is too weak.";
-                break;
-            default:
-                console.error("Firebase Auth Error:", firebaseError);
-        }
-        setAuthError(friendlyMessage);
+      handleAuthError(error as AuthError);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleSignup = async (data: SignupFormValue) => {
+    setIsLoading(true);
+    setAuthError(null);
+
+    if (!firestore) {
+      setAuthError("Database connection not available.");
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      // 1. Check for username uniqueness
+      const usernameRef = doc(firestore, "usernames", data.username.toLowerCase());
+      const usernameDoc = await getDoc(usernameRef);
+      if (usernameDoc.exists()) {
+        setAuthError("This username is already in use.");
+        signupForm.setError("username", { type: "manual", message: "This username is already in use." });
+        setIsLoading(false);
+        return;
+      }
+      
+      // 2. Create the user
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      // 3. Update the user's profile with the username
+      await updateProfile(user, { displayName: data.username });
+
+      // 4. Create user profile and username documents in Firestore
+      const userProfileRef = doc(firestore, "users", user.uid);
+      const usernameDocRef = doc(firestore, "usernames", data.username.toLowerCase());
+
+      const userProfileData = {
+        username: data.username,
+        email: data.email,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // These are non-blocking writes
+      setDocumentNonBlocking(userProfileRef, userProfileData, {});
+      setDocumentNonBlocking(usernameDocRef, { uid: user.uid }, {});
+
+    } catch (error) {
+      handleAuthError(error as AuthError);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAuthError = (firebaseError: AuthError) => {
+    let friendlyMessage = "An unexpected error occurred. Please try again.";
+    switch (firebaseError.code) {
+        case "auth/user-not-found":
+            friendlyMessage = "No account found with this email address.";
+            break;
+        case "auth/wrong-password":
+            friendlyMessage = "Incorrect password. Please try again.";
+            break;
+        case "auth/email-already-in-use":
+            friendlyMessage = "This email is already in use by another account.";
+            signupForm.setError("email", { type: "manual", message: "This email is already in use." });
+            break;
+        case "auth/invalid-email":
+            friendlyMessage = "The email address is not valid.";
+            break;
+        case "auth/weak-password":
+            friendlyMessage = "The password is too weak.";
+            break;
+        default:
+            console.error("Firebase Auth Error:", firebaseError);
+    }
+    setAuthError(friendlyMessage);
+  };
+
 
   return (
     <div className="w-full min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
@@ -96,16 +156,28 @@ export default function AuthScreen() {
         </p>
       </motion.div>
     
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-sm">
+      <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setAuthError(null); }} className="w-full max-w-sm">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="login">Login</TabsTrigger>
           <TabsTrigger value="signup">Sign Up</TabsTrigger>
         </TabsList>
         <TabsContent value="login">
-          <AuthCardContent isLogin onSubmit={onSubmit} form={form} isLoading={isLoading} authError={authError} />
+          <AuthCardContent 
+            isLogin 
+            onSubmit={handleLogin} 
+            form={loginForm} 
+            isLoading={isLoading} 
+            authError={authError} 
+          />
         </TabsContent>
         <TabsContent value="signup">
-          <AuthCardContent isLogin={false} onSubmit={onSubmit} form={form} isLoading={isLoading} authError={authError} />
+          <AuthCardContent 
+            isLogin={false} 
+            onSubmit={handleSignup} 
+            form={signupForm} 
+            isLoading={isLoading} 
+            authError={authError} 
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -114,8 +186,8 @@ export default function AuthScreen() {
 
 interface AuthCardContentProps {
     isLogin: boolean;
-    onSubmit: (data: UserFormValue) => void;
-    form: any;
+    onSubmit: (data: any) => void;
+    form: any; // react-hook-form's `UseFormReturn` type
     isLoading: boolean;
     authError: string | null;
 }
@@ -132,6 +204,25 @@ const AuthCardContent = ({ isLogin, onSubmit, form, isLoading, authError }: Auth
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {!isLogin && (
+                 <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="player123"
+                          disabled={isLoading}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="email"
@@ -169,7 +260,7 @@ const AuthCardContent = ({ isLogin, onSubmit, form, isLoading, authError }: Auth
                 )}
               />
 
-              {authError && (
+              {authError && form.formState.isSubmitted && (
                   <p className="text-sm font-medium text-destructive">{authError}</p>
               )}
 

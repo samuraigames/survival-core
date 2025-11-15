@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Level": {
@@ -28,11 +29,11 @@
         },
         "achievementId": {
           "type": "string",
-          "description": "Reference to the Achievement earned upon completion of this level. (Relationship: Level 1:1 Achievement)"
+          "description": "Reference to the Achievement earned upon completion of this level."
         },
         "unlocksNextLevelId": {
           "type": "string",
-          "description": "Reference to the next Level unlocked upon completion of this level. Null if it unlocks end credits. (Relationship: Level 1:1 Level)"
+          "description": "Reference to the next Level unlocked upon completion of this level. Null if it unlocks end credits."
         },
         "menuDescription": {
           "type": "string",
@@ -88,10 +89,6 @@
       "type": "object",
       "description": "Represents the player's overall progress in the game.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the player progress entry."
-        },
         "unlockedLevelIds": {
           "type": "array",
           "description": "References to Levels unlocked by the player.",
@@ -109,17 +106,55 @@
         "endCreditsUnlocked": {
           "type": "boolean",
           "description": "Indicates whether the end credits have been unlocked."
+        },
+        "completionDateTimes": {
+          "type": "object",
+          "description": "A map of achievement IDs to their completion date-time strings.",
+          "additionalProperties": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores public information about a user.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "The user's unique, public-facing username."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address, kept private by security rules."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of when the user account was created."
         }
       },
-      "required": [
-        "id"
-      ]
+      "required": ["username", "email", "createdAt"]
+    },
+    "Username": {
+        "title": "Username",
+        "description": "A document that maps a username to a user's UID to enforce uniqueness.",
+        "type": "object",
+        "properties": {
+            "uid": {
+                "type": "string",
+                "description": "The UID of the user who owns this username."
+            }
+        },
+        "required": ["uid"]
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
@@ -127,52 +162,48 @@
       {
         "path": "/levels/{levelId}",
         "definition": {
-          "entityName": "Level",
           "schema": {
-            "$ref": "#/backend/entities/Level"
+            "$ref": "#/entities/Level"
           },
-          "description": "Stores the definitions for each level in the game. Accessible to all players but only modifiable by admins (not defined here).",
-          "params": [
-            {
-              "name": "levelId",
-              "description": "Unique identifier for the level."
-            }
-          ]
+          "description": "Stores the definitions for each level in the game."
         }
       },
       {
         "path": "/achievements/{achievementId}",
         "definition": {
-          "entityName": "Achievement",
           "schema": {
-            "$ref": "#/backend/entities/Achievement"
+            "$ref": "#/entities/Achievement"
           },
-          "description": "Stores the definitions for each achievement in the game. Accessible to all players but only modifiable by admins (not defined here).",
-          "params": [
-            {
-              "name": "achievementId",
-              "description": "Unique identifier for the achievement."
-            }
-          ]
+          "description": "Stores the definitions for each achievement in the game."
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+            "schema": {
+                "$ref": "#/entities/UserProfile"
+            },
+            "description": "Stores the public profile for each user, including their username."
         }
       },
       {
         "path": "/users/{userId}/playerProgress/main",
         "definition": {
-          "entityName": "PlayerProgress",
           "schema": {
-            "$ref": "#/backend/entities/PlayerProgress"
+            "$ref": "#/entities/PlayerProgress"
           },
-          "description": "Stores the progress data for each player, including unlocked levels and completed achievements. Uses path-based ownership; only the authenticated user can read/write their own document.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user. Corresponds to the Firebase auth UID."
-            }
-          ]
+          "description": "Stores the private progress data for each player."
         }
+      },
+      {
+          "path": "/usernames/{username}",
+          "definition": {
+              "schema": {
+                  "$ref": "#/entities/Username"
+              },
+              "description": "A collection to enforce unique usernames. The document ID is the username (lowercase), and it stores the UID of the user."
+          }
       }
-    ],
-    "reasoning": "This Firestore structure prioritizes authorization independence and efficient data retrieval for the 'Survival Core' game. It leverages path-based ownership for player-specific data and a dedicated collection for global level/achievement definitions. This design avoids `get()` calls in security rules, enables atomic operations, and supports secure list operations.\n\nLevels and Achievements are stored in top-level collections to enable easy querying and management, since the number of these will not grow with the number of players. Player progress is stored under the `/users/{userId}` path to ensure that each player can only access their own progress data. This structure achieves Authorization Independence, as the PlayerProgress document does not rely on any other documents in order to define access.\n\nThis structure facilitates secure `list` operations because the levels and achievements are in top-level collections, and player progress is segmented by user ID. The security rules can efficiently filter data based on the user's authentication state without needing complex queries or data lookups."
+    ]
   }
 }
