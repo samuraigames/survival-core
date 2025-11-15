@@ -269,32 +269,33 @@ function AppContent() {
   }
 
   return (
-    <main className="fixed inset-0 flex items-center justify-center pointer-events-none">
-       <div className="pointer-events-auto w-full h-full">
-        <AnimatePresence>
-          {showRotatePrompt && isMobile && (
-            <motion.div
-              key="rotate-prompt"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleRotateAndLock}
-              className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center text-center p-4 cursor-pointer"
-            >
-              <RotateCw className="w-16 h-16 text-accent mb-4 animate-spin" />
-              <h1 className="text-2xl font-headline text-foreground mb-2">
-                Tap to Enter Fullscreen
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                This game is best played in landscape mode.
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <OrientationLock isMobile={isMobile}>
-          {renderGameStatus()}
-        </OrientationLock>
-      </div>
+    <main 
+      className="fixed top-0 left-0 w-[100vw] h-[100vh] overflow-hidden flex items-center justify-center"
+      style={{ touchAction: 'none' }}
+    >
+      <AnimatePresence>
+        {showRotatePrompt && isMobile && (
+          <motion.div
+            key="rotate-prompt"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleRotateAndLock}
+            className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center text-center p-4 cursor-pointer"
+          >
+            <RotateCw className="w-16 h-16 text-accent mb-4 animate-spin" />
+            <h1 className="text-2xl font-headline text-foreground mb-2">
+              Tap to Enter Fullscreen
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              This game is best played in landscape mode.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <OrientationLock isMobile={isMobile}>
+        {renderGameStatus()}
+      </OrientationLock>
     </main>
   );
 }
@@ -304,3 +305,5 @@ export default function Home() {
       <AppContent />
   )
 }
+
+    

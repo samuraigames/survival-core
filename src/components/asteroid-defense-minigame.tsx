@@ -291,7 +291,7 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
           <motion.div
             style={{
               position: 'absolute',
-              bottom: isMobileMode ? 40 : 0,
+              bottom: 0,
               width: SHIP_WIDTH,
               height: SHIP_HEIGHT,
             }}
@@ -362,3 +362,5 @@ const AsteroidDefenseMinigame: React.FC<AsteroidDefenseMinigameProps> = ({ open,
 };
 
 export default AsteroidDefenseMinigame;
+
+    
