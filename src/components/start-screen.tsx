@@ -9,13 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import type { Level } from "@/lib/levels";
-import { initialLevels } from "@/lib/levels";
 import { initialAchievements } from "@/lib/achievements";
 import type { PlayerProgress } from "@/lib/types";
 import { format } from 'date-fns';
 import { useAuth, useFirebase, useUser, setDocumentNonBlocking } from "@/firebase";
 import { signOut } from "firebase/auth";
-import { ADMIN_UIDS } from "@/lib/admins";
 import { useToast } from "@/hooks/use-toast";
 import { doc } from "firebase/firestore";
 
@@ -26,6 +24,12 @@ interface StartScreenProps {
   playerProgress: PlayerProgress | null;
   setPlayerProgress: (progress: PlayerProgress) => void;
 }
+
+// Admin UIDs are now defined directly in the component
+const ADMIN_UIDS: string[] = [
+    "5cZ5jWtyK5Z5gc3Afw5kRHb7sYC2",
+    "zvDHJFKXb0VeGe6LUForw7ZyBsw2",
+];
 
 const StartScreen = ({ onStart, isGameInProgress, levels, playerProgress, setPlayerProgress }: StartScreenProps) => {
 
